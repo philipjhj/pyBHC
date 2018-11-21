@@ -52,8 +52,8 @@ class bhc(object):
         self.verbose = verbose
 
         # initialize the tree
-        nodes = dict((i, Node(np.array([x]), data_model, crp_alpha,
-                              indexes=i))
+        nodes = dict((i, Node.as_leaf(np.array([x]), data_model, crp_alpha,
+                                      indexes=i))
                      for i, x in enumerate(data))
         n_nodes = len(nodes)
         start_n_nodes = len(nodes)
@@ -289,7 +289,9 @@ class Node(object):
         """
         self.data_model = data_model
         self.data = data
-        self.nk = data.shape[0]
+        self.nk = self.data.shape[0] if type(self.data) is np.ndarray \
+            else self.data.n
+
         self.crp_alpha = crp_alpha
         self.log_pi = log_pi
         self.log_rk = log_rk
@@ -302,21 +304,21 @@ class Node(object):
         else:
             self.indexes = indexes
 
-        if log_dk is None:
-            self.log_dk = math.log(crp_alpha)
-        else:
-            self.log_dk = log_dk
+        self.log_dk = log_dk
+        self.logp = logp
+        self.log_ml = log_ml
 
-        if logp is None:    # i.e. for a leaf
-            self.logp = self.data_model.\
-                log_marginal_likelihood(self.data)
-        else:
-            self.logp = logp
+    @classmethod
+    def as_leaf(cls, data, data_model, crp_alpha, indexes):
 
-        if log_ml is None:  # i.e. for a leaf
-            self.log_ml = self.logp
-        else:
-            self.log_ml = log_ml
+        data = data_model.compute_data(data)
+
+        log_dk = math.log(crp_alpha)
+        logp = data_model.log_marginal_likelihood(data)
+        log_ml = logp
+
+        return cls(data, data_model, crp_alpha, log_dk=log_dk,
+                   log_pi=0.0, log_ml=log_ml, logp=logp, indexes=indexes)
 
     @classmethod
     def as_merge(cls, node_left, node_right):
@@ -330,11 +332,12 @@ class Node(object):
         """
         crp_alpha = node_left.crp_alpha
         data_model = node_left.data_model
-        data = np.vstack((node_left.data, node_right.data))
+        data = data_model.compute_data((node_left.data, node_right.data))
+
         indexes = node_left.indexes + node_right.indexes
         indexes.sort()
 
-        nk = data.shape[0]
+        nk = node_left.nk+node_right.nk
         log_dk = logaddexp(math.log(crp_alpha) + math.lgamma(nk),
                            node_left.log_dk + node_right.log_dk)
         log_pi = -math.log1p(math.exp(node_left.log_dk

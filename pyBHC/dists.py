@@ -88,6 +88,22 @@ class NormalInverseWishart(CollapsibleDistribution):
 
         return log_z
 
+    @staticmethod
+    def compute_data(input_data):
+        """ Computes the data to be stored with each node
+
+            Parameters
+            ----------
+            input_data : ndarray or tuple of two ndarrays
+                data to be transformed
+        """
+        if type(input_data) is tuple:
+            output_data = np.vstack(input_data)
+        else:
+            output_data = input_data
+
+        return output_data
+
     def log_marginal_likelihood(self, X):
         n = X.shape[0]
         params_n = self.update_parameters(X, self.mu_0, self.lambda_0,
@@ -325,6 +341,6 @@ class NormalFixedCovar(CollapsibleDistribution):
 
             # Sample from multivariate Normal
             output[it, :] = stats.multivariate_normal.rvs(
-                                mean=params_n[0], cov=cov)
+                mean=params_n[0], cov=cov)
 
         return output
