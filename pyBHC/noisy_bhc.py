@@ -6,7 +6,7 @@ import sys
 from numpy import logaddexp
 import math
 
-import gmm
+from . import gmm
 
 
 class noisy_bhc(object):

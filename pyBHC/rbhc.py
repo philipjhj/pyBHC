@@ -2,7 +2,7 @@ from __future__ import print_function, division
 import math
 import numpy as np
 
-from bhc import bhc
+from .bhc import bhc
 
 
 class rbhc(object):

@@ -5,9 +5,9 @@ import numpy as np
 from sklearn.cluster import MiniBatchKMeans
 
 
-import gmm
-from hardEM import hard_EM_GMM
-from noisy_bhc import noisy_bhc
+from . import gmm
+from .hardEM import hard_EM_GMM
+from .noisy_bhc import noisy_bhc
 
 
 class noisy_EMBHC(object):

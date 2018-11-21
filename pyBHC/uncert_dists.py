@@ -6,7 +6,7 @@ import math
 from scipy import stats
 from scipy.special import gammaln, multigammaln
 
-from dists import CollapsibleDistribution, FrozenDistribution
+from .dists import CollapsibleDistribution, FrozenDistribution
 
 
 LOG2PI = math.log(2*math.pi)

@@ -10,9 +10,7 @@ with open(path.join(here, 'README')) as f:
 
 setup(
     name='pyBHC',
-
-    # No version number yet
-    # version='',
+    version='0.1.0',
 
     description='Bayesian Hierarchical clustering in python',
     long_description=long_description,

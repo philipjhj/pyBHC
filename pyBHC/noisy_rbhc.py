@@ -2,8 +2,8 @@ from __future__ import print_function, division
 import math
 import numpy as np
 
-import gmm
-from noisy_bhc import noisy_bhc
+from . import gmm
+from .noisy_bhc import noisy_bhc
 
 
 class noisy_rbhc(object):
