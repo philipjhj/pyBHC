@@ -59,7 +59,11 @@ class bhc(object):
         start_n_nodes = len(nodes)
         assignment = [i for i in range(n_nodes)]
         self.assignments = [list(assignment)]
-        rks = []
+        self.rks = []
+        self.Z = []
+
+        n_nodes_total = n_nodes-1
+        n_idx_map = [i for i in range(n_nodes)]
 
         while n_nodes > 1:
             if self.verbose:
@@ -83,7 +87,7 @@ class bhc(object):
                     merged_right = right_idx
                     merged_left = left_idx
 
-            rks.append(math.exp(max_rk))
+            self.rks.append(math.exp(max_rk))
 
             # Merge the highest-scoring pair
             del nodes[merged_right]
@@ -95,6 +99,12 @@ class bhc(object):
             self.assignments.append(list(assignment))
 
             n_nodes -= 1
+
+            self.Z.append([n_idx_map[merged_left], n_idx_map[merged_right],
+                           float(n_nodes_total), assignment.count(merged_left)])
+
+            n_nodes_total += 1
+            n_idx_map[merged_left] = n_nodes_total
 
         self.root_node = nodes[0]
         self.assignments = np.array(self.assignments)
@@ -169,13 +179,13 @@ class bhc(object):
 
                 if node.log_rk is None:     # Node is a leaf
                     output[it, :] = self.data_model.conditional_sample(
-                                        node.data)
+                        node.data)
                     sampled = True
 
                 elif np.random.rand() < math.exp(node.log_rk):
                     # sample from node
                     output[it, :] = self.data_model.conditional_sample(
-                                                                    node.data)
+                        node.data)
                     sampled = True
 
                 else:   # drop to next level
@@ -299,7 +309,7 @@ class Node(object):
 
         if logp is None:    # i.e. for a leaf
             self.logp = self.data_model.\
-                            log_marginal_likelihood(self.data)
+                log_marginal_likelihood(self.data)
         else:
             self.logp = logp
 
