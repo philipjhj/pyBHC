@@ -27,8 +27,7 @@ class bhc(object):
     large for datasets of more than a few hundred points.
     """
 
-    def __init__(self, data, data_model, crp_alpha=1.0,
-                 verbose=False):
+    def __init__(self, data, data_model, crp_alpha=1.0, verbose=False):
         """
         Init a bhc instance and perform the clustering.
 
@@ -45,18 +44,22 @@ class bhc(object):
         verbose : bool, optional
             Determibes whetrher info gets dumped to stdout.
         """
-        self.data = data
         self.data_model = data_model
         self.crp_alpha = crp_alpha
-
         self.verbose = verbose
 
+        if not all(isinstance(n, Node) for n in data):
+            self.nodes = dict((i, Node.as_leaf(np.array([x]), data_model, crp_alpha,
+                                               indexes=i))
+                              for i, x in enumerate(data))
+        else:
+            self.nodes = data
+
+    def fit(self):
         # initialize the tree
-        nodes = dict((i, Node.as_leaf(np.array([x]), data_model, crp_alpha,
-                                      indexes=i))
-                     for i, x in enumerate(data))
-        n_nodes = len(nodes)
-        start_n_nodes = len(nodes)
+
+        n_nodes = len(self.nodes)
+        start_n_nodes = len(self.nodes)
         assignment = [i for i in range(n_nodes)]
         self.assignments = [list(assignment)]
         self.rks = []
@@ -76,10 +79,10 @@ class bhc(object):
 
             # for each pair of clusters (nodes), compute the merger
             # score.
-            for left_idx, right_idx in it.combinations(nodes.keys(),
+            for left_idx, right_idx in it.combinations(self.nodes.keys(),
                                                        2):
-                tmp_node = Node.as_merge(nodes[left_idx],
-                                         nodes[right_idx])
+                tmp_node = Node.as_merge(self.nodes[left_idx],
+                                         self.nodes[right_idx])
 
                 if tmp_node.log_rk > max_rk:
                     max_rk = tmp_node.log_rk
@@ -90,8 +93,8 @@ class bhc(object):
             self.rks.append(math.exp(max_rk))
 
             # Merge the highest-scoring pair
-            del nodes[merged_right]
-            nodes[merged_left] = merged_node
+            del self.nodes[merged_right]
+            self.nodes[merged_left] = merged_node
 
             for i, k in enumerate(assignment):
                 if k == merged_right:
@@ -106,7 +109,7 @@ class bhc(object):
             n_nodes_total += 1
             n_idx_map[merged_left] = n_nodes_total
 
-        self.root_node = nodes[0]
+        self.root_node = self.nodes[0]
         self.assignments = np.array(self.assignments)
 
         # The denominator of log_rk is at the final merge is an
