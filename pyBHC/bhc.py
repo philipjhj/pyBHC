@@ -2,6 +2,7 @@ from __future__ import print_function, division
 import itertools as it
 import numpy as np
 import sys
+from scipy.cluster.hierarchy import ClusterNode
 
 from numpy import logaddexp
 import math
@@ -27,7 +28,7 @@ class bhc(object):
     large for datasets of more than a few hundred points.
     """
 
-    def __init__(self, data, data_model, crp_alpha=1.0, verbose=False):
+    def __init__(self, data, data_model, crp_alpha=1.0):
         """
         Init a bhc instance and perform the clustering.
 
@@ -46,43 +47,34 @@ class bhc(object):
         """
         self.data_model = data_model
         self.crp_alpha = crp_alpha
-        self.verbose = verbose
 
         if not all(isinstance(n, Node) for n in data):
-            self.nodes = dict((i, Node.as_leaf(np.array([x]), data_model, crp_alpha,
-                                               indexes=i))
-                              for i, x in enumerate(data))
+            self.nodes = [self.create_leaf_node(
+                node_id, np.array([x])) for node_id, x in enumerate(data)]
         else:
             self.nodes = data
 
     def fit(self):
         # initialize the tree
 
-        n_nodes = len(self.nodes)
-        start_n_nodes = len(self.nodes)
-        assignment = [i for i in range(n_nodes)]
+        assignment = list(range(len(self.nodes)))
         self.assignments = [list(assignment)]
         self.rks = []
         self.Z = []
 
-        n_nodes_total = n_nodes-1
-        n_idx_map = [i for i in range(n_nodes)]
+        current_roots = assignment
 
-        while n_nodes > 1:
-            if self.verbose:
-                sys.stdout.write("\r{0:d} of {1:d} ".format(n_nodes,
-                                                            start_n_nodes))
-                sys.stdout.flush()
-
+        while len(current_roots) > 1:
             max_rk = float('-Inf')
             merged_node = None
+            merged_node_id = len(self.nodes)
 
             # for each pair of clusters (nodes), compute the merger
             # score.
-            for left_idx, right_idx in it.combinations(self.nodes.keys(),
-                                                       2):
-                tmp_node = Node.as_merge(self.nodes[left_idx],
-                                         self.nodes[right_idx])
+            for left_idx, right_idx in it.combinations(current_roots, 2):
+                tmp_node = self.create_merged_node(merged_node_id,
+                                                   self.nodes[left_idx],
+                                                   self.nodes[right_idx])
 
                 if tmp_node.log_rk > max_rk:
                     max_rk = tmp_node.log_rk
@@ -90,24 +82,21 @@ class bhc(object):
                     merged_right = right_idx
                     merged_left = left_idx
 
-            self.rks.append(math.exp(max_rk))
+            current_roots.remove(merged_left)
+            current_roots.remove(merged_right)
+            current_roots.append(len(self.nodes))
 
-            # Merge the highest-scoring pair
-            del self.nodes[merged_right]
-            self.nodes[merged_left] = merged_node
+            self.nodes.append(merged_node)
+
+            self.rks.append(math.exp(max_rk))
 
             for i, k in enumerate(assignment):
                 if k == merged_right:
                     assignment[i] = merged_left
             self.assignments.append(list(assignment))
 
-            n_nodes -= 1
-
-            self.Z.append([n_idx_map[merged_left], n_idx_map[merged_right],
-                           float(n_nodes_total), assignment.count(merged_left)])
-
-            n_nodes_total += 1
-            n_idx_map[merged_left] = n_nodes_total
+            self.Z.append([self.nodes[merged_left].id, self.nodes[merged_right].id,
+                           float(merged_node.id), merged_node.get_count()])
 
         self.root_node = self.nodes[0]
         self.assignments = np.array(self.assignments)
@@ -115,20 +104,6 @@ class bhc(object):
         # The denominator of log_rk is at the final merge is an
         # estimate of the marginal likelihood of the data under DPMM
         self.lml = self.root_node.log_ml
-
-    def left_run(self):
-        node = self.root_node
-        while node.left_child is not None:
-            print(node.indexes, np.mean(node.data, axis=0), node.data.shape)
-            node = node.left_child
-        print(node.indexes, np.mean(node.data, axis=0), node.data.shape)
-
-    def right_run(self):
-        node = self.root_node
-        while node.right_child is not None:
-            print(node.indexes, np.mean(node.data, axis=0), node.data.shape)
-            node = node.right_child
-        print(node.indexes, np.mean(node.data, axis=0), node.data.shape)
 
     def find_path(self, index):
         """ find_path(index)
@@ -201,166 +176,62 @@ class bhc(object):
 
         return output
 
+    def create_leaf_node(self, new_node_id, data):
 
-class Node(object):
-    """ A node in the hierarchical clustering.
-    Attributes
-    ----------
-    nk : int
-        Number of data points assigned to the node
-    data : numpy.ndarrary (n, d)
-        The data assigned to the Node. Each row is a datum.
-    data_model : idsteach.CollapsibleDistribution
-        The data model used to calcuate marginal likelihoods
-    crp_alpha : float
-        Chinese restaurant process concentration parameter
-    log_dk : float
-        Used in the calculation of the prior probability. Defined in
-        Fig 3 of Heller & Ghahramani (2005).
-    log_pi : float
-        Prior probability that all associated leaves belong to one
-        cluster.
-    log_ml : float
-        The log marginal likelihood for the tree of the node and
-        its children. This is given by eqn 2 of Heller &
-        Ghahrimani (2005). Note that this definition is
-        recursive.  Do not define if the node is
-        a leaf.
-    logp : float
-        The log marginal likelihood for the particular cluster
-        represented by the node. Given by eqn 1 of Heller &
-        Ghahramani (2005).
-    log_rk : float
-        The log-probability of the merge that created the node. For
-        nodes that are leaves (i.e. not created by a merge) this is
-        None.
-    left_child : Node
-        The left child of a merge. For nodes that are leaves (i.e.
-        the original data points and not made by a merge) this is
-        None.
-    right_child : Node
-        The right child of a merge. For nodes that are leaves
-        (i.e. the original data points and not made by a merge)
-        this is None.
-    index : int
-        The indexes of the leaves associated with the node in some
-        indexing scheme.
-    """
-
-    def __init__(self, data, data_model, crp_alpha=1.0, log_dk=None,
-                 log_pi=0.0, log_ml=None, logp=None, log_rk=None,
-                 left_child=None, right_child=None, indexes=None):
-        """
-        Parameters
-        ----------
-        data : numpy.ndarray
-            Array of data_model-appropriate data
-        data_model : idsteach.CollapsibleDistribution
-            The data model used to calcuate marginal likelihoods
-        crp_alpha : float (0, Inf)
-            CRP concentration parameter
-        log_dk : float
-            Cached probability variable. Do not define if the node is
-            a leaf.
-        log_pi : float
-            Cached probability variable. Do not define if the node is
-            a leaf.
-        log_ml : float
-            The log marginal likelihood for the tree of the node and
-            its children. This is given by eqn 2 of Heller &
-            Ghahrimani (2005). Note that this definition is
-            recursive.  Do not define if the node is
-            a leaf.
-        logp : float
-            The log marginal likelihood for the particular cluster
-            represented by the node. Given by eqn 1 of Heller &
-            Ghahramani (2005).
-        log_rk : float
-            The probability of the merged hypothesis for the node.
-            Given by eqn 3 of Heller & Ghahrimani (2005). Do not
-            define if the node is a leaf.
-        left_child : Node, optional
-            The left child of a merge. For nodes that are leaves (i.e.
-            the original data points and not made by a merge) this is
-            None.
-        right_child : Node, optional
-            The right child of a merge. For nodes that are leaves
-            (i.e. the original data points and not made by a merge)
-            this is None.
-        index : int, optional
-            The index of the node in some indexing scheme.
-        """
-        self.data_model = data_model
-        self.data = data
-        self.nk = self.data.shape[0] if type(self.data) is np.ndarray \
-            else self.data.n
-
-        self.crp_alpha = crp_alpha
-        self.log_pi = log_pi
-        self.log_rk = log_rk
-
-        self.left_child = left_child
-        self.right_child = right_child
-
-        if isinstance(indexes, int):
-            self.indexes = [indexes]
-        else:
-            self.indexes = indexes
-
-        self.log_dk = log_dk
-        self.logp = logp
-        self.log_ml = log_ml
-
-    @classmethod
-    def as_leaf(cls, data, data_model, crp_alpha, indexes):
-
-        data = data_model.compute_data(data)
-
-        log_dk = math.log(crp_alpha)
-        logp = data_model.log_marginal_likelihood(data)
+        data = self.data_model.compute_data(data)
+        log_dk = math.log(self.crp_alpha)
+        logp = self.data_model.log_marginal_likelihood(data)
         log_ml = logp
+        log_rk = None
 
-        return cls(data, data_model, crp_alpha, log_dk=log_dk,
-                   log_pi=0.0, log_ml=log_ml, logp=logp, indexes=indexes)
+        return Node(new_node_id, log_rk, log_ml, log_dk, data=data)
 
-    @classmethod
-    def as_merge(cls, node_left, node_right):
-        """ Create a node from two other nodes
-        Parameters
-        ----------
-        node_left : Node
-            the Node on the left
-        node_right : Node
-            The Node on the right
-        """
-        crp_alpha = node_left.crp_alpha
-        data_model = node_left.data_model
-        data = data_model.compute_data((node_left.data, node_right.data))
+    def create_merged_node(self, new_node_id, left_node, right_node):
 
-        indexes = node_left.indexes + node_right.indexes
-        indexes.sort()
+        nk = left_node.get_count()+right_node.get_count()
+        dk_sum = left_node.log_dk + right_node.log_dk
 
-        nk = node_left.nk+node_right.nk
-        log_dk = logaddexp(math.log(crp_alpha) + math.lgamma(nk),
-                           node_left.log_dk + node_right.log_dk)
-        log_pi = -math.log1p(math.exp(node_left.log_dk
-                                      + node_right.log_dk
-                                      - math.log(crp_alpha)
+        log_dk = logaddexp(math.log(self.crp_alpha) + math.lgamma(nk),
+                           dk_sum)
+        log_pi = -math.log1p(math.exp(dk_sum - math.log(self.crp_alpha)
                                       - math.lgamma(nk)))
 
         # Calculate log_rk - the log probability of the merge
 
-        logp = data_model.log_marginal_likelihood(data)
+        nodes_data = left_node.pre_order(lambda x: x.data) + \
+            right_node.pre_order(lambda x: x.data)
+
+        data = self.data_model.compute_data(nodes_data)
+
+        logp = self.data_model.log_marginal_likelihood(data)
         numer = log_pi + logp
 
         neg_pi = math.log(-math.expm1(log_pi))
-        log_ml = logaddexp(numer, neg_pi+node_left.log_ml + node_right.log_ml)
+        log_ml = logaddexp(numer, neg_pi+left_node.log_ml + right_node.log_ml)
 
         log_rk = numer-log_ml
 
         if log_pi == 0:
             raise RuntimeError('Precision error')
 
-        return cls(data, data_model, crp_alpha, log_dk, log_pi,
-                   log_ml, logp, log_rk, node_left, node_right,
-                   indexes)
+        return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node)
+
+
+class Node(ClusterNode):
+    """ 
+    Based off scipy's ClusterNode class
+    """
+
+    def __init__(self, node_id, log_rk, log_ml, log_dk, data=None, left_child=None, right_child=None):
+
+        if left_child is not None:
+            count = left_child.count+right_child.count
+        else:
+            count = 1
+
+        self.log_rk = log_rk
+        self.log_ml = log_ml
+        self.log_dk = log_dk
+        self.data = data
+
+        super().__init__(node_id, left=left_child, right=right_child, count=count)

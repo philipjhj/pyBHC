@@ -97,7 +97,7 @@ class NormalInverseWishart(CollapsibleDistribution):
             input_data : ndarray or tuple of two ndarrays
                 data to be transformed
         """
-        if type(input_data) is tuple:
+        if type(input_data) is list:
             output_data = np.vstack(input_data)
         else:
             output_data = input_data
