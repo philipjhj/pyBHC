@@ -85,6 +85,7 @@ class bhc(object):
             current_roots.remove(merged_right)
             current_roots.append(len(self.nodes))
 
+            # merged_node.log_rk = 0
             self.nodes.append(merged_node)
 
             self.rks.append(math.exp(max_rk))
@@ -98,29 +99,39 @@ class bhc(object):
                            float(merged_node.id), merged_node.get_count()])
 
         self.assignments = np.array(self.assignments)
-        self.root_node = merged_node
+        self.root_node = self.nodes[-1]
 
-        self.omegas = self.compute_omegas(root_node)
+        if self.root_node.get_count() > 1:
+            self.omegas = self.compute_omegas(self.root_node)
 
     @staticmethod
-    def compute_omegas(node, r_i=[], n_total=0):
-        """ Recursive function to compute the mixture probabilites 
+    def compute_omegas(node, log_ri=None, n_total=None):
+        """ Recursive function to compute the mixture probabilites
             denoted omegas
         """
 
-        if not n_total:
-            n_total = node.get_count()
+        log_ri = [] if log_ri is None else log_ri.copy()
+        n_total = node.get_count() if n_total is None else n_total
 
-        # if not node.is_leaf():
-        r_k = math.exp(node.log_rk)
-        omega = node.get_count()/n_total*r_k*np.prod(1-np.array(r_i))
-        omega_node = [omega]
-        r_i.append(r_k)
+        log_rk = node.log_rk
 
-        omega_left = self.compute_omegas(node.get_left(), r_i, n_total)
-        omega_right = self.compute_omegas(node.get_right(), r_i, n_total)
+        log_omega = np.log(node.get_count())-np.log(n_total) + \
+            log_rk+np.nan_to_num(np.sum(np.log(-np.expm1(np.array(log_ri)))))
 
-        return omega_node+omega_left+omega_right
+        log_omega_node = [log_omega]
+
+        log_ri.append(log_rk)
+
+        if not node.is_leaf():
+            log_omega_left = bhc.compute_omegas(
+                node.get_left(), log_ri=log_ri, n_total=n_total)
+            log_omega_right = bhc.compute_omegas(
+                node.get_right(), log_ri=log_ri, n_total=n_total)
+        else:
+            log_omega_left = []
+            log_omega_right = []
+
+        return log_omega_node+log_omega_left+log_omega_right
 
     def create_leaf_node(self, new_node_id, data):
 
@@ -164,7 +175,7 @@ class bhc(object):
 
 
 class Node(ClusterNode):
-    """ 
+    """
     Based off scipy's ClusterNode class
     """
 
