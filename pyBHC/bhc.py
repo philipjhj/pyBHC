@@ -154,8 +154,7 @@ class bhc(object):
 
         # Calculate log_rk - the log probability of the merge
 
-        nodes_data = left_node.pre_order(lambda x: x.data) + \
-            right_node.pre_order(lambda x: x.data)
+        nodes_data = left_node.get_data() + right_node.get_data()
 
         data = self.data_model.compute_data(nodes_data)
 
@@ -191,3 +190,6 @@ class Node(ClusterNode):
         self.data = data
 
         super().__init__(node_id, left=left_child, right=right_child, count=count)
+
+    def get_data(self):
+        return self.pre_order(lambda x: x.data)
