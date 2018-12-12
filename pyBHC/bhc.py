@@ -48,6 +48,7 @@ class bhc(object):
         self.data_model = data_model
         self.crp_alpha = crp_alpha
 
+        # initialize the tree
         if not all(isinstance(n, Node) for n in data):
             self.nodes = [self.create_leaf_node(
                 node_id, np.array([x])) for node_id, x in enumerate(data)]
@@ -55,8 +56,6 @@ class bhc(object):
             self.nodes = data
 
     def fit(self):
-        # initialize the tree
-
         assignment = list(range(len(self.nodes)))
         self.assignments = [list(assignment)]
         self.rks = []
@@ -98,83 +97,30 @@ class bhc(object):
             self.Z.append([self.nodes[merged_left].id, self.nodes[merged_right].id,
                            float(merged_node.id), merged_node.get_count()])
 
-        self.root_node = self.nodes[0]
         self.assignments = np.array(self.assignments)
+        self.root_node = merged_node
 
-        # The denominator of log_rk is at the final merge is an
-        # estimate of the marginal likelihood of the data under DPMM
-        self.lml = self.root_node.log_ml
+        self.omegas = self.compute_omegas(root_node)
 
-    def find_path(self, index):
-        """ find_path(index)
-
-            Finds the sequence of left and right merges needed to
-            run from the root node to a particular leaf.
-
-            Parameters
-            ----------
-            index : int
-                The index of the leaf for which we want the path
-                from the root node.
+    @staticmethod
+    def compute_omegas(node, r_i=[], n_total=0):
+        """ Recursive function to compute the mixture probabilites 
+            denoted omegas
         """
-        merge_path = []
-        last_leftmost_index = self.assignments[-1][index]
-        last_right_incluster = (self.assignments[-1]
-                                == last_leftmost_index)
 
-        for it in range(len(self.assignments)-2, -1, -1):
-            new_leftmost_index = self.assignments[it][index]
+        if not n_total:
+            n_total = node.get_count()
 
-            if new_leftmost_index != last_leftmost_index:
-                # True if leaf is on the right hand side of a merge
-                merge_path.append("right")
-                last_leftmost_index = new_leftmost_index
-                last_right_incluster = (self.assignments[it]
-                                        == new_leftmost_index)
+        # if not node.is_leaf():
+        r_k = math.exp(node.log_rk)
+        omega = node.get_count()/n_total*r_k*np.prod(1-np.array(r_i))
+        omega_node = [omega]
+        r_i.append(r_k)
 
-            else:       # Not in a right hand side of a merge
+        omega_left = self.compute_omegas(node.get_left(), r_i, n_total)
+        omega_right = self.compute_omegas(node.get_right(), r_i, n_total)
 
-                new_right_incluster = (self.assignments[it]
-                                       == last_leftmost_index)
-
-                if (new_right_incluster != last_right_incluster).any():
-                    # True if leaf is on the left hand side of a merge
-                    merge_path.append("left")
-                    last_right_incluster = new_right_incluster
-
-        return merge_path
-
-    def sample(self, size=1):
-
-        output = np.zeros((size, self.root_node.data.shape[1]))
-
-        for it in range(size):
-
-            sampled = False
-            node = self.root_node
-
-            while not sampled:
-
-                if node.log_rk is None:     # Node is a leaf
-                    output[it, :] = self.data_model.conditional_sample(
-                        node.data)
-                    sampled = True
-
-                elif np.random.rand() < math.exp(node.log_rk):
-                    # sample from node
-                    output[it, :] = self.data_model.conditional_sample(
-                        node.data)
-                    sampled = True
-
-                else:   # drop to next level
-                    child_ratio = (node.left_child.nk
-                                   / (node.left_child.nk+node.right_child.nk))
-                    if np.random.rand() >= child_ratio:
-                        node = node.right_child
-                    else:
-                        node = node.left_child
-
-        return output
+        return omega_node+omega_left+omega_right
 
     def create_leaf_node(self, new_node_id, data):
 
@@ -182,7 +128,7 @@ class bhc(object):
         log_dk = math.log(self.crp_alpha)
         logp = self.data_model.log_marginal_likelihood(data)
         log_ml = logp
-        log_rk = None
+        log_rk = 0
 
         return Node(new_node_id, log_rk, log_ml, log_dk, data=data)
 
