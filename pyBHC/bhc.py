@@ -96,7 +96,7 @@ class bhc(object):
             self.assignments.append(list(assignment))
 
             self.Z.append([self.nodes[merged_left].id, self.nodes[merged_right].id,
-                           float(merged_node.id), merged_node.get_count()])
+                           np.abs(max_rk), self.nodes[-1].get_count()])
 
         self.assignments = np.array(self.assignments)
         self.root_node = self.nodes[-1]
