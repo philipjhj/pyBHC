@@ -101,8 +101,7 @@ class bhc(object):
         self.assignments = np.array(self.assignments)
         self.root_node = self.nodes[-1]
 
-        if self.root_node.get_count() > 1:
-            self.omegas = self.compute_omegas(self.root_node)
+        self.omegas = self.compute_omegas(self.root_node)
 
     @staticmethod
     def compute_omegas(node, log_ri=None, n_total=None):

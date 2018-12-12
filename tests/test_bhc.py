@@ -12,22 +12,76 @@ hypers = {
     'lambda_0': np.eye(2),
 }
 
-crp_alpha = 1.0
+crp_alpha = 2.0
 
 
-def test_bhc_20():
-    data = list(np.random.normal(size=(20, 2)))
+def train_model(data):
     bhc_model = bhc(data, NormalInverseWishart(**hypers), crp_alpha=crp_alpha)
     bhc_model.fit()
 
+    # Verify rks
+    rks = np.array(bhc_model.rks)
+    assert np.all(np.logical_and(rks > 0, rks < 1))
 
-def test_bhc_2():
-    data = list(np.random.normal(size=(2, 2)))
-    bhc_model = bhc(data, NormalInverseWishart(**hypers), crp_alpha=crp_alpha)
-    bhc_model.fit()
+    # Verify omegas
+    assert len(bhc_model.omegas) == len(bhc_model.nodes)
+    omega_sum = np.sum(np.exp(bhc_model.omegas))
+    # print(len(bhc_model.omegas))
+    # print(np.exp(bhc_model.omegas))
+    print(omega_sum)
+    assert np.isclose(omega_sum, 1)
 
 
 def test_bhc_1():
     data = list(np.random.normal(size=(1, 2)))
-    bhc_model = bhc(data, NormalInverseWishart(**hypers), crp_alpha=crp_alpha)
-    bhc_model.fit()
+    train_model(data)
+
+
+def test_bhc_2():
+    data = list(np.random.normal(size=(2, 2)))
+    train_model(data)
+
+
+def test_bhc_3():
+    data = list(np.random.normal(size=(3, 2)))
+    train_model(data)
+
+
+def test_bhc_4():
+    data = list(np.random.normal(size=(4, 2)))
+    train_model(data)
+
+
+def test_bhc_5():
+    data = list(np.random.normal(size=(5, 2)))
+    train_model(data)
+
+
+def test_bhc_6():
+    data = list(np.random.normal(size=(6, 2)))
+    train_model(data)
+
+
+def test_bhc_7():
+    data = list(np.random.normal(size=(7, 2)))
+    train_model(data)
+
+
+def test_bhc_8():
+    data = list(np.random.normal(size=(8, 2)))
+    train_model(data)
+
+
+def test_bhc_9():
+    data = list(np.random.normal(size=(9, 2)))
+    train_model(data)
+
+
+def test_bhc_25():
+    data = list(np.random.normal(size=(25, 2)))
+    train_model(data)
+
+
+def test_bhc_50():
+    data = list(np.random.normal(size=(50, 2)))
+    train_model(data)
