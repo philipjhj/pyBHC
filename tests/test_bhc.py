@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import matplotlib.pyplot as plt
 
 
 from pyBHC.bhc import bhc
@@ -30,6 +31,13 @@ def train_model(data):
     # print(np.exp(bhc_model.omegas))
     print(omega_sum)
     assert np.isclose(omega_sum, 1)
+
+    bhc_model.plot_dendrogram()
+    plt.close()
+    bhc_model.plot_clusters()
+    plt.close()
+
+    bhc_model.predict(data[-1])
 
 
 def test_bhc_1():

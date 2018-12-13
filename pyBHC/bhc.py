@@ -2,7 +2,8 @@ from __future__ import print_function, division
 import itertools as it
 import numpy as np
 import sys
-from scipy.cluster.hierarchy import ClusterNode
+from scipy.cluster.hierarchy import ClusterNode, dendrogram
+import matplotlib.pyplot as plt
 
 from numpy import logaddexp
 import math
@@ -95,8 +96,10 @@ class bhc(object):
                     assignment[i] = merged_left
             self.assignments.append(list(assignment))
 
-            self.Z.append([self.nodes[merged_left].id, self.nodes[merged_right].id,
-                           np.abs(max_rk), self.nodes[-1].get_count()])
+            self.Z.append([self.nodes[merged_left].id,
+                           self.nodes[merged_right].id,
+                           np.sqrt(self.nodes[-1].get_count()),
+                           self.nodes[-1].get_count()])
 
         self.assignments = np.array(self.assignments)
         self.root_node = self.nodes[-1]
@@ -131,6 +134,21 @@ class bhc(object):
             log_omega_right = []
 
         return log_omega_node+log_omega_left+log_omega_right
+
+    def predict(self, new_data):
+        log_predictive_probs = []
+        for i, node in enumerate(self.nodes):
+            nodes_data = node.get_data()
+            data = self.data_model.compute_data(nodes_data)
+
+            posterior_prob = self.data_model.log_posterior_predictive(
+                new_data, data)
+            log_predictive_probs.append(self.omegas[i]+posterior_prob)
+
+        k = np.argmax(log_predictive_probs)
+        predict_prob = np.sum(np.exp(log_predictive_probs))
+
+        return k, predict_prob
 
     def create_leaf_node(self, new_node_id, data):
 
@@ -170,6 +188,48 @@ class bhc(object):
             raise RuntimeError('Precision error')
 
         return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node)
+
+    def plot_dendrogram(self):
+        colors = ['b' if np.exp(node.log_rk) >
+                  0.5 else 'r' for node in self.nodes]
+        if self.Z:
+            dend = dendrogram(self.Z, link_color_func=lambda k: colors[k])
+
+    def plot_clusters(self, data=None):
+
+        top_cluster_nodes = bhc.get_cut_subtrees(self.root_node)
+
+        clusters = [node.pre_order(lambda x: x.id)
+                    for node in top_cluster_nodes]
+
+        data_colors = np.zeros(self.root_node.get_count())
+
+        for i, cluster in enumerate(clusters):
+            data_colors[cluster] = i
+
+        colors = plt.cm.get_cmap('hsv', len(clusters)+1)
+        plot_colors = [colors(i) for i in data_colors.astype(int)]
+
+        try:
+            data = np.vstack(self.root_node.get_data()
+                             ) if data is None else data
+            plt.scatter(data[:, 0], data[:, 1], color=plot_colors)
+        except (AttributeError, IndexError):
+            print('Please provide original data when using a summary statistics format')
+
+    def plot_gmm(self):
+        return NotImplemented
+
+    @staticmethod
+    def get_cut_subtrees(node, nodelist=None):
+        nodelist = [] if nodelist is None else nodelist
+
+        if np.exp(node.log_rk) < 0.5:
+            left = bhc.get_cut_subtrees(node.get_left())
+            right = bhc.get_cut_subtrees(node.get_right())
+            return nodelist+left+right
+        else:
+            return [node]
 
 
 class Node(ClusterNode):
