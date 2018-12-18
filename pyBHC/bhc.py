@@ -60,7 +60,6 @@ class bhc(object):
         assignment = list(range(len(self.nodes)))
         self.assignments = [list(assignment)]
         self.rks = []
-        self.Z = []
 
         current_roots = assignment
 
@@ -96,15 +95,26 @@ class bhc(object):
                     assignment[i] = merged_left
             self.assignments.append(list(assignment))
 
-            self.Z.append([self.nodes[merged_left].id,
-                           self.nodes[merged_right].id,
-                           np.sqrt(self.nodes[-1].get_count()),
-                           self.nodes[-1].get_count()])
-
         self.assignments = np.array(self.assignments)
         self.root_node = self.nodes[-1]
 
         self.omegas = self.compute_omegas(self.root_node)
+
+    def get_Z(self):
+        Z = []
+        ids = [node.id for node in self.nodes]
+        for node in reversed(self.nodes):
+            try:
+                idx = [ids.index(node.get_left().id),
+                       ids.index(node.get_right().id)]
+                Z.append([min(idx),
+                          max(idx),
+                          np.sqrt(node.get_count()),
+                          node.get_count()])
+            except AttributeError:
+                pass
+
+        return list(reversed(Z))
 
     @staticmethod
     def compute_omegas(node, log_ri=None, n_total=None):
@@ -192,8 +202,9 @@ class bhc(object):
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >
                   0.5 else 'r' for node in self.nodes]
-        if self.Z:
-            dend = dendrogram(self.Z, link_color_func=lambda k: colors[k])
+        Z = self.get_Z()
+        if Z:
+            dend = dendrogram(Z, link_color_func=lambda k: colors[k])
 
     def plot_clusters(self, data=None):
 
