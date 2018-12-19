@@ -102,19 +102,41 @@ class bhc(object):
 
     def get_Z(self):
         Z = []
-        ids = [node.id for node in self.nodes]
-        for node in reversed(self.nodes):
-            try:
-                idx = [ids.index(node.get_left().id),
-                       ids.index(node.get_right().id)]
+        #ids = [node.id for node in self.nodes]
+        n_leafs = int((len(self.nodes)+1)/2)
+        ids_inner = iter(range(n_leafs, len(self.nodes)))
+        ids_leafs = iter(range(n_leafs))
+        inner_orig_id = []
+        inner_new_id = []
+        i = 1
+        for node in self.nodes:
+            if not node.is_leaf():
+                inner_new_id.append(next(ids_inner))
+                inner_orig_id.append(node.id)
+
+                left = node.get_left()
+                right = node.get_right()
+
+                if left.is_leaf():
+                    id_left = next(ids_leafs)
+                else:
+                    id_left = inner_new_id[inner_orig_id.index(left.id)]
+
+                if right.is_leaf():
+                    id_right = next(ids_leafs)
+                else:
+                    id_right = inner_new_id[inner_orig_id.index(right.id)]
+
+                idx = [id_left,
+                       id_right]
+
                 Z.append([min(idx),
                           max(idx),
-                          np.sqrt(node.get_count()),
+                          float(i),  # np.sqrt(node.get_count()),
                           node.get_count()])
-            except AttributeError:
-                pass
+                i += 1
 
-        return list(reversed(Z))
+        return Z
 
     @staticmethod
     def compute_omegas(node, log_ri=None, n_total=None):
@@ -204,7 +226,8 @@ class bhc(object):
                   0.5 else 'r' for node in self.nodes]
         Z = self.get_Z()
         if Z:
-            dend = dendrogram(Z, link_color_func=lambda k: colors[k])
+            dend = dendrogram(Z, distance_sort=True,
+                              link_color_func=lambda k: colors[k])
 
     def plot_clusters(self, data=None):
 

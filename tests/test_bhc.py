@@ -33,9 +33,9 @@ def train_model(data):
     assert np.isclose(omega_sum, 1)
 
     bhc_model.plot_dendrogram()
-    plt.close()
+    plt.show()
     bhc_model.plot_clusters()
-    plt.close()
+    plt.show()
 
     bhc_model.predict(data[-1])
 
