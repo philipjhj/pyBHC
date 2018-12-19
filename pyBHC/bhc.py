@@ -210,7 +210,8 @@ class bhc(object):
 
         top_cluster_nodes = bhc.get_cut_subtrees(self.root_node)
 
-        clusters = [node.pre_order(lambda x: x.id)
+        ids = self.root_node.pre_order(lambda x: x.id)
+        clusters = [[ids.index(i) for i in node.pre_order(lambda x: x.id)]
                     for node in top_cluster_nodes]
 
         data_colors = np.zeros(self.root_node.get_count())
