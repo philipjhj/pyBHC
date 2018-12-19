@@ -142,7 +142,7 @@ class NormalInverseWishart(CollapsibleDistribution):
         t_dof = params_old[3]-self.d+1
 
         t_z = X_new - params_old[0]
-        t_logdiff = math.log(1+np.sum(t_z*np.dot(t_sigma_inv, t_z))
+        t_logdiff = math.log(1+np.sum(np.dot(t_z, np.dot(t_sigma_inv, t_z.T)))
                              / t_dof)
 
         sgn, det = np.linalg.slogdet(t_sigma)
