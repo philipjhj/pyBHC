@@ -66,7 +66,7 @@ class bhc(object):
         while len(current_roots) > 1:
             max_rk = float('-Inf')
             merged_node = None
-            merged_node_id = len(self.nodes)
+            merged_node_id = max([node.id for node in self.nodes])+1
 
             # for each pair of clusters (nodes), compute the merger
             # score.
