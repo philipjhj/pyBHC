@@ -102,6 +102,7 @@ class bhc(object):
 
     def get_Z(self):
         Z = []
+        leaf_ids = []
         #ids = [node.id for node in self.nodes]
         n_leafs = int((len(self.nodes)+1)/2)
         ids_inner = iter(range(n_leafs, len(self.nodes)))
@@ -119,11 +120,13 @@ class bhc(object):
 
                 if left.is_leaf():
                     id_left = next(ids_leafs)
+                    leaf_ids.append(left.id)
                 else:
                     id_left = inner_new_id[inner_orig_id.index(left.id)]
 
                 if right.is_leaf():
                     id_right = next(ids_leafs)
+                    leaf_ids.append(right.id)
                 else:
                     id_right = inner_new_id[inner_orig_id.index(right.id)]
 
@@ -136,7 +139,7 @@ class bhc(object):
                           node.get_count()])
                 i += 1
 
-        return Z
+        return Z, leaf_ids
 
     @staticmethod
     def compute_omegas(node, log_ri=None, n_total=None):
@@ -224,9 +227,9 @@ class bhc(object):
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >
                   0.5 else 'r' for node in self.nodes]
-        Z = self.get_Z()
+        Z, leaf_ids = self.get_Z()
         if Z:
-            dend = dendrogram(Z, distance_sort=True,
+            dend = dendrogram(Z, distance_sort=True, labels=leaf_ids,
                               link_color_func=lambda k: colors[k])
 
     def plot_clusters(self, data=None):
