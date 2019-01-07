@@ -32,6 +32,8 @@ def train_model(data):
     print(omega_sum)
     assert np.isclose(omega_sum, 1)
 
+    print(str(bhc_model.root_node))
+
     bhc_model.plot_dendrogram()
     plt.show()
     bhc_model.plot_clusters()

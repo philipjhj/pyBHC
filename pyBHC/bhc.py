@@ -286,5 +286,19 @@ class Node(ClusterNode):
 
         super().__init__(node_id, left=left_child, right=right_child, count=count)
 
+    def __str__(self, level=0, sym=""):
+        new_sym = "|" if np.exp(self.log_rk) > 0.5 else "x"
+        if self.get_right():
+            ret = self.get_right().__str__(level+1, new_sym)
+        else:
+            ret = ""
+
+        ret += "   "*(level-1)+(sym+"--")*(level > 0)+str(self.id)+"\n"
+
+        if self.get_left():
+            ret += self.get_left().__str__(level+1, new_sym)
+
+        return ret
+
     def get_data(self):
         return self.pre_order(lambda x: x.data)
