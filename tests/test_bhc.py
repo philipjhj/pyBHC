@@ -36,8 +36,11 @@ def train_model(data):
 
     bhc_model.plot_dendrogram()
     plt.show()
-    bhc_model.plot_clusters()
+    # plt.close()
+    plot_data = np.array(data)
+    bhc_model.plot_clusters(data=plot_data)
     plt.show()
+    # plt.close()
 
     bhc_model.predict(data[-1])
 

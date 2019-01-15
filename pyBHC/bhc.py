@@ -3,8 +3,10 @@ import itertools as it
 import numpy as np
 import sys
 from scipy.cluster.hierarchy import ClusterNode, dendrogram
+from scipy import linalg
 import matplotlib.pyplot as plt
 
+import matplotlib as mpl
 from numpy import logaddexp
 import math
 
@@ -228,35 +230,65 @@ class bhc(object):
         colors = ['b' if np.exp(node.log_rk) >
                   0.5 else 'r' for node in self.nodes]
         Z, leaf_ids = self.get_Z()
-        if Z:
-            dend = dendrogram(Z, distance_sort=True, labels=leaf_ids,
-                              link_color_func=lambda k: colors[k])
+        Z = np.array(Z)
+        Z[:, 2] = 1.15**Z[:, 2]  # decent exp increase for visualization
+        dend = dendrogram(Z, distance_sort=True, labels=leaf_ids,
+                          link_color_func=lambda k: colors[k])
 
     def plot_clusters(self, data=None):
 
-        top_cluster_nodes = bhc.get_cut_subtrees(self.root_node)
+        def plot_mean_cov(mean, covar, color, splot):
+            v, w = linalg.eigh(covar)
+            v = 2. * np.sqrt(2.) * np.sqrt(v)
+            u = w[0] / linalg.norm(w[0])
 
-        ids = self.root_node.pre_order(lambda x: x.id)
-        clusters = [[ids.index(i) for i in node.pre_order(lambda x: x.id)]
+            # Plot an ellipse to show the Gaussian component
+            angle = np.arctan(u[1] / u[0])
+            angle = 180. * angle / np.pi  # convert to degrees
+            ell = mpl.patches.Ellipse(
+                mean[0], v[0], v[1], 180.+angle, color=color)
+            # ell.set_clip_box(splot.bbox)
+            ell.set_alpha(0.5)
+            splot.add_artist(ell)
+
+        top_cluster_nodes = self.get_cut_subtrees(
+            self.root_node)
+
+        leaf_ids = [node.id for node in self.nodes if node.is_leaf()]
+        clusters = [[leaf_ids.index(i) for i in node.pre_order(lambda x: x.id)]
                     for node in top_cluster_nodes]
+
+        clusters_id = [node.pre_order(lambda x: x.id)
+                       for node in top_cluster_nodes]
 
         data_colors = np.zeros(self.root_node.get_count())
 
         for i, cluster in enumerate(clusters):
-            data_colors[cluster] = i
+            data_colors[cluster] = int(i)
 
-        colors = plt.cm.get_cmap('hsv', len(clusters)+1)
-        plot_colors = [colors(i) for i in data_colors.astype(int)]
+        data_colors = data_colors[np.argsort(leaf_ids)]
 
-        try:
-            data = np.vstack(self.root_node.get_data()
-                             ) if data is None else data
-            plt.scatter(data[:, 0], data[:, 1], color=plot_colors)
-        except (AttributeError, IndexError):
-            print('Please provide original data when using a summary statistics format')
+        # TODO: get n colors
+        # colors = plt.cm.get_cmap('hsv', max(len(clusters)+1, 4))
+        # plot_colors = [colors(i) for i in data_colors]
 
-    def plot_gmm(self):
-        return NotImplemented
+        colors = 'rbycmg'
+        plot_colors = [colors[int(i)] for i in data_colors]
+
+        data = np.vstack(self.root_node.get_data()
+                         ) if data is None else data
+
+        plt.scatter(data[:, 0], data[:, 1], color=plot_colors)
+        plt.title(clusters_id)
+
+        plt.scatter(data[-1, 0], data[-1, 1], color='w', s=12)
+
+        for i, cluster_node in enumerate(top_cluster_nodes):
+            data_n = cluster_node.get_count()
+            mean = cluster_node.get_mean()
+            cov = cluster_node.get_cov()
+            if data_n > 2:
+                plot_mean_cov(mean, cov, colors[i], plt.gca())
 
     @staticmethod
     def get_cut_subtrees(node, nodelist=None):
@@ -305,3 +337,15 @@ class Node(ClusterNode):
 
     def get_data(self):
         return self.pre_order(lambda x: x.data)
+
+    def get_mean(self):
+        data = self.get_data()
+        return np.mean(np.vstack(data), axis=0, keepdims=True) \
+            if type(data[0]) is np.ndarray \
+            else sum(data).get_mean()
+
+    def get_cov(self):
+        data = self.get_data()
+        return np.cov(np.vstack(data), rowvar=False) \
+            if type(data[0]) is np.ndarray \
+            else sum(data).get_cov()
