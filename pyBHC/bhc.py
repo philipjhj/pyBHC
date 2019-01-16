@@ -172,7 +172,7 @@ class bhc(object):
 
         return log_omega_node+log_omega_left+log_omega_right
 
-    def predict(self, new_data):
+    def predict(self, new_data, all_nodes=False):
         log_predictive_probs = []
         for i, node in enumerate(self.nodes):
             nodes_data = node.get_data()
@@ -182,8 +182,13 @@ class bhc(object):
                 new_data, data)
             log_predictive_probs.append(self.omegas[i]+posterior_prob)
 
-        k = np.argmax(log_predictive_probs)
+        k_array = np.argsort(log_predictive_probs)
         predict_prob = np.sum(np.exp(log_predictive_probs))
+
+        if not all_nodes:
+            k = k_array[0]
+        else:
+            k = k_array
 
         return k, predict_prob
 
