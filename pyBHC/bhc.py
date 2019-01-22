@@ -183,7 +183,7 @@ class bhc(object):
             log_predictive_probs.append(self.omegas[i]+posterior_prob)
 
         k_array = np.argsort(log_predictive_probs)
-        predict_prob = np.sum(np.exp(log_predictive_probs))
+        predict_prob = np.exp(log_predictive_probs)
 
         if not all_nodes:
             k = k_array[0]
