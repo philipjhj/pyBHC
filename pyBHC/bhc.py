@@ -5,6 +5,7 @@ import sys
 from scipy.cluster.hierarchy import ClusterNode, dendrogram
 from scipy import linalg
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 import matplotlib as mpl
 from numpy import logaddexp
@@ -187,6 +188,7 @@ class bhc(object):
 
         if not all_nodes:
             k = k_array[0]
+            predict_prob = predict_prob[0]
         else:
             k = k_array
 
@@ -278,8 +280,10 @@ class bhc(object):
         # colors = plt.cm.get_cmap('hsv', max(len(clusters)+1, 4))
         # plot_colors = [colors(i) for i in data_colors]
 
-        colors = 'rbycmg'
-        plot_colors = [colors[int(i)] for i in data_colors]
+        colors = sns.color_palette(
+            palette='deep', n_colors=len(top_cluster_nodes))
+
+        plot_colors = np.array([colors[int(i)] for i in data_colors], ndmin=2)
 
         data = np.vstack(self.root_node.get_data()
                          ) if data is None else data

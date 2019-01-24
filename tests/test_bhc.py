@@ -42,7 +42,7 @@ def train_model(data):
     # plt.show()
     plt.close()
 
-    bhc_model.predict(data[-1])
+    k, p = bhc_model.predict(data[-1])
 
 
 def test_bhc_1():
