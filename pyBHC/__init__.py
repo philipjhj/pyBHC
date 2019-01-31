@@ -5,7 +5,7 @@ Heller, K. A., & Ghahramani, Z. (2005). Bayesian Hierarchical
     doi:10.1145/1102351.1102389
 """
 
-from .bhc import bhc
+from .bhc import bhc, Node
 from .dists import NormalInverseWishart, NormalFixedCovar
 from .rbhc import rbhc
 
