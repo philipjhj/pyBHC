@@ -230,8 +230,8 @@ class bhc(object):
         log_dk = compute_log_dk(log_alpha_gamma_nk, log_children_dks)
         log_pi = compute_log_pi(log_alpha_gamma_nk, log_dk)
 
-        if log_pi == 0:
-            raise RuntimeError('Precision error')
+        # if log_pi == 0:
+        #   raise RuntimeError('Precision error')
 
         nodes_data = left_node.get_data() + right_node.get_data()
         data = self.data_model.compute_data(nodes_data)
