@@ -327,12 +327,12 @@ class Node(ClusterNode):
     Based off scipy's ClusterNode class
     """
 
-    def __init__(self, node_id, log_rk, log_ml, log_dk, data=None, left_child=None, right_child=None):
+    def __init__(self, node_id, log_rk, log_ml, log_dk, data=None, count=None, left_child=None, right_child=None):
 
         if left_child is not None:
             count = left_child.count+right_child.count
         else:
-            count = 1
+            count = count if count else 1
 
         self.log_rk = log_rk
         self.log_ml = log_ml
