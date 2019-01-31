@@ -206,32 +206,42 @@ class bhc(object):
 
     def create_merged_node(self, new_node_id, left_node, right_node):
 
+        def compute_log_alpha_gamma_nk(crp_alpha, nk):
+            return math.log(crp_alpha) + math.lgamma(nk)
+
+        def compute_log_dk(log_alpha_gamma_nk, log_children_dks):
+            return logaddexp(log_alpha_gamma_nk, log_children_dks)
+
+        def compute_log_pi(log_alpha_gamma_nk, log_dk):
+            return -math.log(math.exp(log_dk - log_alpha_gamma_nk))
+
+        def compute_posterior_merged(log_marginal, log_pi, left_node, right_node):
+            log_numerator = log_pi + log_marginal
+            log_1m_pi = math.log(-math.expm1(log_pi))
+            log_denominator = logaddexp(
+                log_numerator, log_1m_pi+left_node.log_ml + right_node.log_ml)
+
+            return log_numerator-log_denominator, log_denominator
+
         nk = left_node.get_count()+right_node.get_count()
-        dk_sum = left_node.log_dk + right_node.log_dk
+        log_children_dks = left_node.log_dk + right_node.log_dk
 
-        log_dk = logaddexp(math.log(self.crp_alpha) + math.lgamma(nk),
-                           dk_sum)
-        log_pi = -math.log1p(math.exp(dk_sum - math.log(self.crp_alpha)
-                                      - math.lgamma(nk)))
-
-        # Calculate log_rk - the log probability of the merge
-
-        nodes_data = left_node.get_data() + right_node.get_data()
-
-        data = self.data_model.compute_data(nodes_data)
-
-        logp = self.data_model.log_marginal_likelihood(data)
-        numer = log_pi + logp
-
-        neg_pi = math.log(-math.expm1(log_pi))
-        log_ml = logaddexp(numer, neg_pi+left_node.log_ml + right_node.log_ml)
-
-        log_rk = numer-log_ml
+        log_alpha_gamma_nk = compute_log_alpha_gamma_nk(self.crp_alpha, nk)
+        log_dk = compute_log_dk(log_alpha_gamma_nk, log_children_dks)
+        log_pi = compute_log_pi(log_alpha_gamma_nk, log_dk)
 
         if log_pi == 0:
             raise RuntimeError('Precision error')
 
-        return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node)
+        nodes_data = left_node.get_data() + right_node.get_data()
+        data = self.data_model.compute_data(nodes_data)
+
+        log_marginal = self.data_model.log_marginal_likelihood(data)
+
+        log_rk, log_subtree = compute_posterior_merged(
+            log_marginal, log_pi, left_node, right_node)
+
+        return Node(new_node_id, log_rk, log_subtree, log_dk, left_child=left_node, right_child=right_node)
 
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >
