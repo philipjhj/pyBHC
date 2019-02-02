@@ -209,39 +209,29 @@ class bhc(object):
         def compute_log_alpha_gamma_nk(crp_alpha, nk):
             return math.log(crp_alpha) + math.lgamma(nk)
 
-        def compute_log_dk(log_alpha_gamma_nk, log_children_dks):
-            return logaddexp(log_alpha_gamma_nk, log_children_dks)
+        def compute_posterior_merged(log_alpha_gamma_nk, log_marginal_h1, left_node, right_node):
+            v1 = left_node.log_ml+right_node.log_ml
+            v2 = log_alpha_gamma_nk+log_marginal_h1
 
-        def compute_log_pi(log_alpha_gamma_nk, log_dk):
-            return -math.log(math.exp(log_dk - log_alpha_gamma_nk))
-
-        def compute_posterior_merged(log_marginal, log_pi, left_node, right_node):
-            log_numerator = log_pi + log_marginal
-            log_1m_pi = math.log(-math.expm1(log_pi))
-            log_denominator = logaddexp(
-                log_numerator, log_1m_pi+left_node.log_ml + right_node.log_ml)
-
-            return log_numerator-log_denominator, log_denominator
+            return -np.log1p(np.exp(v1-v2))
 
         nk = left_node.get_count()+right_node.get_count()
-        log_children_dks = left_node.log_dk + right_node.log_dk
 
         log_alpha_gamma_nk = compute_log_alpha_gamma_nk(self.crp_alpha, nk)
-        log_dk = compute_log_dk(log_alpha_gamma_nk, log_children_dks)
-        log_pi = compute_log_pi(log_alpha_gamma_nk, log_dk)
-
-        # if log_pi == 0:
-        #   raise RuntimeError('Precision error')
 
         nodes_data = left_node.get_data() + right_node.get_data()
         data = self.data_model.compute_data(nodes_data)
 
-        log_marginal = self.data_model.log_marginal_likelihood(data)
+        log_marginal_h1 = self.data_model.log_marginal_likelihood(data)
 
-        log_rk, log_subtree = compute_posterior_merged(
-            log_marginal, log_pi, left_node, right_node)
+        log_rk = compute_posterior_merged(
+            log_alpha_gamma_nk, log_marginal_h1, left_node, right_node)
 
-        return Node(new_node_id, log_rk, log_subtree, log_dk, left_child=left_node, right_child=right_node)
+        # TODO: compute this recursively every time
+        log_ml = logaddexp(log_alpha_gamma_nk+log_marginal_h1,
+                           left_node.log_ml+right_node.log_ml)
+
+        return Node(new_node_id, log_rk, log_ml, 0, left_child=left_node, right_child=right_node)
 
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >
