@@ -6,10 +6,14 @@ from scipy.cluster.hierarchy import ClusterNode, dendrogram
 from scipy import linalg
 import matplotlib.pyplot as plt
 import seaborn as sns
+import logging
 
 import matplotlib as mpl
 from numpy import logaddexp
 import math
+
+
+logger = logging.getLogger(__name__)
 
 
 class bhc(object):
@@ -197,9 +201,9 @@ class bhc(object):
     def create_leaf_node(self, new_node_id, data):
 
         data = self.data_model.compute_data(data)
-        log_dk = math.log(self.crp_alpha)
         logp = self.data_model.log_marginal_likelihood(data)
-        log_ml = logp
+        log_dk = (logp, math.log(self.crp_alpha))
+        log_ml = math.log(self.crp_alpha)+logp
         log_rk = 0
 
         return Node(new_node_id, log_rk, log_ml, log_dk, data=data)
@@ -231,7 +235,55 @@ class bhc(object):
         log_ml = logaddexp(log_alpha_gamma_nk+log_marginal_h1,
                            left_node.log_ml+right_node.log_ml)
 
-        return Node(new_node_id, log_rk, log_ml, 0, left_child=left_node, right_child=right_node)
+        log_dk = None
+
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            old_log_rk, old_log_ml, old_log_dk = self.compute_old_rk(
+                left_node, right_node)
+
+            assert (np.isclose(log_rk, old_log_rk)), \
+                'log_rk(={}) is not equal to old_log_rk(={})'.format(
+                log_rk, old_log_rk)
+
+            log_dk = (old_log_ml, old_log_dk)
+
+        return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node)
+
+    def compute_old_rk(self, left_node, right_node):
+
+        def compute_log_alpha_gamma_nk(crp_alpha, nk):
+            return math.log(crp_alpha) + math.lgamma(nk)
+
+        def compute_log_dk(log_alpha_gamma_nk, log_children_dks):
+            return logaddexp(log_alpha_gamma_nk, log_children_dks)
+
+        def compute_log_pi(log_alpha_gamma_nk, log_dk):
+            return -math.log(math.exp(log_dk - log_alpha_gamma_nk))
+
+        def compute_posterior_merged(log_marginal, log_pi, left_node, right_node):
+            log_numerator = log_pi + log_marginal
+            log_1m_pi = math.log(-math.expm1(log_pi))
+            log_denominator = logaddexp(
+                log_numerator, log_1m_pi+left_node.log_dk[0] + right_node.log_dk[0])
+
+            return log_numerator-log_denominator, log_denominator
+
+        nk = left_node.get_count()+right_node.get_count()
+        log_children_dks = left_node.log_dk[1] + right_node.log_dk[1]
+
+        log_alpha_gamma_nk = compute_log_alpha_gamma_nk(self.crp_alpha, nk)
+        log_dk = compute_log_dk(log_alpha_gamma_nk, log_children_dks)
+        log_pi = compute_log_pi(log_alpha_gamma_nk, log_dk)
+
+        nodes_data = left_node.get_data() + right_node.get_data()
+        data = self.data_model.compute_data(nodes_data)
+
+        log_marginal = self.data_model.log_marginal_likelihood(data)
+
+        log_rk, log_subtree = compute_posterior_merged(
+            log_marginal, log_pi, left_node, right_node)
+
+        return log_rk, log_subtree, log_dk
 
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >

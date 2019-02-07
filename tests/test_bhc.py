@@ -1,10 +1,25 @@
 import numpy as np
 import pytest
 import matplotlib.pyplot as plt
+import logging
+import sys
 
 
 from pyBHC.bhc import bhc
 from pyBHC.dists import NormalInverseWishart
+
+#LOGGING_LEVEL = logging.INFO
+LOGGING_LEVEL = logging.DEBUG
+
+logging.basicConfig(
+    level=LOGGING_LEVEL,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        # logging.FileHandler(LOGPATH/'{}.log'.format(NOW)),
+        logging.StreamHandler(sys.stdout)
+    ])
+
+logger = logging.getLogger(__name__)
 
 hypers = {
     'mu_0': np.zeros(2),
@@ -35,11 +50,11 @@ def train_model(data):
     print(str(bhc_model.root_node))
 
     bhc_model.plot_dendrogram()
-    # plt.show()
+    plt.show()
     plt.close()
     plot_data = np.array(data)
     bhc_model.plot_clusters(data=plot_data)
-    # plt.show()
+    plt.show()
     plt.close()
 
     k, p = bhc_model.predict(data[-1])
