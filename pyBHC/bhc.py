@@ -162,7 +162,7 @@ class bhc(object):
         log_omega = np.log(node.get_count())-np.log(n_total) + \
             log_rk+np.nan_to_num(np.sum(np.log(-np.expm1(np.array(log_ri)))))
 
-        log_omega_node = [log_omega]
+        log_omega_node = {node.id: log_omega}
 
         log_ri.append(log_rk)
 
@@ -172,20 +172,22 @@ class bhc(object):
             log_omega_right = bhc.compute_omegas(
                 node.get_right(), log_ri=log_ri, n_total=n_total)
         else:
-            log_omega_left = []
-            log_omega_right = []
+            log_omega_left = {}
+            log_omega_right = {}
 
-        return log_omega_node+log_omega_left+log_omega_right
+        log_omega_node.update(log_omega_left)
+        log_omega_node.update(log_omega_right)
+        return log_omega_node
 
     def predict(self, new_data, all_nodes=False):
         log_predictive_probs = []
-        for i, node in enumerate(self.nodes):
+        for node in self.nodes:
             nodes_data = node.get_data()
             data = self.data_model.compute_data(nodes_data)
 
             posterior_prob = self.data_model.log_posterior_predictive(
                 new_data, data)
-            log_predictive_probs.append(self.omegas[i]+posterior_prob)
+            log_predictive_probs.append(self.omegas[node.id]+posterior_prob)
 
         k_array = list(reversed(np.argsort(log_predictive_probs)))
         predict_prob = np.exp(log_predictive_probs)

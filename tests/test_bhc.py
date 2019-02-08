@@ -41,7 +41,7 @@ def train_model(data):
 
     # Verify omegas
     assert len(bhc_model.omegas) == len(bhc_model.nodes)
-    omega_sum = np.sum(np.exp(bhc_model.omegas))
+    omega_sum = np.sum(np.exp(list(bhc_model.omegas.values())))
     # print(len(bhc_model.omegas))
     # print(np.exp(bhc_model.omegas))
     print(omega_sum)
