@@ -341,7 +341,6 @@ class bhc(object):
                          ) if data is None else data
 
         plt.scatter(data[:, 0], data[:, 1], color=plot_colors)
-        plt.title(clusters_id)
 
         plt.scatter(data[-1, 0], data[-1, 1], color='w', s=12)
 
