@@ -69,18 +69,24 @@ class bhc(object):
         self.rks = []
 
         current_roots = assignment
-
+        cached_nodes = dict()
+        merged_node_id = max([node.id for node in self.nodes])
         while len(current_roots) > 1:
             max_rk = float('-Inf')
             merged_node = None
-            merged_node_id = max([node.id for node in self.nodes])+1
 
             # for each pair of clusters (nodes), compute the merger
             # score.
             for left_idx, right_idx in it.combinations(current_roots, 2):
-                tmp_node = self.create_merged_node(merged_node_id,
-                                                   self.nodes[left_idx],
-                                                   self.nodes[right_idx])
+                merged_node_id += 1
+                if (left_idx, right_idx) not in cached_nodes.keys():
+                    tmp_node = self.create_merged_node(merged_node_id,
+                                                       self.nodes[left_idx],
+                                                       self.nodes[right_idx])
+
+                    cached_nodes[(left_idx, right_idx)] = tmp_node
+                else:
+                    tmp_node = cached_nodes[(left_idx, right_idx)]
 
                 if tmp_node.log_rk > max_rk:
                     max_rk = tmp_node.log_rk
@@ -94,6 +100,8 @@ class bhc(object):
 
             # merged_node.log_rk = 0
             self.nodes.append(merged_node)
+
+            del cached_nodes[(merged_left, merged_right)]
 
             self.rks.append(math.exp(max_rk))
 
