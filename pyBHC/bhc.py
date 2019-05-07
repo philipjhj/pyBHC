@@ -117,8 +117,8 @@ class bhc(object):
 
     def get_Z(self):
         Z = []
-        leaf_ids = []
-        #ids = [node.id for node in self.nodes]
+        leaves_id_order = []
+
         n_leafs = int((len(self.nodes)+1)/2)
         ids_inner = iter(range(n_leafs, len(self.nodes)))
         ids_leafs = iter(range(n_leafs))
@@ -135,13 +135,13 @@ class bhc(object):
 
                 if left.is_leaf():
                     id_left = next(ids_leafs)
-                    leaf_ids.append(left.id)
+                    leaves_id_order.append(left.id)
                 else:
                     id_left = inner_new_id[inner_orig_id.index(left.id)]
 
                 if right.is_leaf():
                     id_right = next(ids_leafs)
-                    leaf_ids.append(right.id)
+                    leaves_id_order.append(right.id)
                 else:
                     id_right = inner_new_id[inner_orig_id.index(right.id)]
 
@@ -154,7 +154,7 @@ class bhc(object):
                           node.get_count()])
                 i += 1
 
-        return Z, leaf_ids
+        return Z, leaves_id_order
 
     @staticmethod
     def compute_omegas(node, log_ri=None, n_total=None):
@@ -298,11 +298,11 @@ class bhc(object):
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >
                   0.5 else 'r' for node in self.nodes]
-        Z, leaf_ids = self.get_Z()
+        Z, leaves_id_order = self.get_Z()
         if Z:
             Z = np.array(Z, ndmin=2)
             Z[:, 2] = 1.15**Z[:, 2]  # decent exp increase for visualization
-            dend = dendrogram(Z, distance_sort=False, labels=leaf_ids,
+            dend = dendrogram(Z, distance_sort=False, labels=leaves_id_order,
                               link_color_func=lambda k: colors[k])
 
     def plot_clusters(self, data=None):
@@ -321,45 +321,41 @@ class bhc(object):
             ell.set_alpha(0.5)
             splot.add_artist(ell)
 
+        if data is not None:
+            leaves_id_order = [
+                node.id for node in self.nodes if node.is_leaf()]
+        else:
+            leaves_id_order = [
+                node.id for node in self.root_node.pre_order(lambda x: x)]
+
+            data = np.vstack(self.root_node.get_data())
+
         top_cluster_nodes = self.get_cut_subtrees(
             self.root_node)
 
-        leaf_ids = [node.id for node in self.nodes if node.is_leaf()]
-        clusters = [[leaf_ids.index(i) for i in node.pre_order(lambda x: x.id)]
-                    for node in top_cluster_nodes]
-
-        clusters_id = [node.pre_order(lambda x: x.id)
-                       for node in top_cluster_nodes]
-
-        data_colors = np.zeros(self.root_node.get_count())
-
-        for i, cluster in enumerate(clusters):
-            data_colors[cluster] = int(i)
-
-        data_colors = data_colors[np.argsort(leaf_ids)]
-
-        # TODO: get n colors
-        # colors = plt.cm.get_cmap('hsv', max(len(clusters)+1, 4))
-        # plot_colors = [colors(i) for i in data_colors]
-
         colors = sns.color_palette(
             palette='deep', n_colors=len(top_cluster_nodes))
+        colors = np.array(colors)
 
-        plot_colors = np.array([colors[int(i)] for i in data_colors], ndmin=2)
+        colors_data = np.zeros((self.root_node.get_count(), 3))
+        clusters = []
+        mean_cov_tuples = []
+        for k, node in enumerate(top_cluster_nodes):
+            cluster_i_assignments = [leaves_id_order.index(i)
+                                     for i in node.pre_order(lambda x: x.id)]
+            clusters.append(cluster_i_assignments)
 
-        data = np.vstack(self.root_node.get_data()
-                         ) if data is None else data
+            colors_data[clusters[-1], :] = colors[k, :]
 
-        plt.scatter(data[:, 0], data[:, 1], color=plot_colors)
+            if node.get_count() > 1:
+                mean_cov_tuples.append((k, node.get_mean(),
+                                        node.get_cov()))
 
+        plt.scatter(data[:, 0], data[:, 1], c=colors_data)
         plt.scatter(data[-1, 0], data[-1, 1], color='w', s=12)
 
-        for i, cluster_node in enumerate(top_cluster_nodes):
-            data_n = cluster_node.get_count()
-            mean = cluster_node.get_mean()
-            cov = cluster_node.get_cov()
-            if data_n > 2:
-                plot_mean_cov(mean, cov, colors[i], plt.gca())
+        for (i, mean, cov) in mean_cov_tuples:
+            plot_mean_cov(mean, cov, colors[i, :], plt.gca())
 
     @staticmethod
     def get_cut_subtrees(node, nodelist=None):
