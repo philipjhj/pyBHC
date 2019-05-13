@@ -11,6 +11,7 @@ import logging
 import matplotlib as mpl
 from numpy import logaddexp
 import math
+from tqdm import tqdm
 
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,12 @@ class bhc(object):
 
             # for each pair of clusters (nodes), compute the merger
             # score.
+
+            logger.info('Computing next merge; missing {} merges'.format(
+                len(current_roots)-1))
+
+            # tqdm not integrated with logging
+            # see https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/41224909
             for left_idx, right_idx in it.combinations(current_roots, 2):
                 merged_node_id += 1
                 if (left_idx, right_idx) not in cached_nodes.keys():
