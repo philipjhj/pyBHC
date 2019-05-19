@@ -12,6 +12,7 @@ import matplotlib as mpl
 from numpy import logaddexp
 import math
 from tqdm import tqdm
+import pdb
 
 
 logger = logging.getLogger(__name__)
@@ -247,6 +248,9 @@ class bhc(object):
 
         log_rk = compute_posterior_merged(
             log_alpha_gamma_nk, log_marginal_h1, left_node, right_node)
+
+        if log_rk == -float('inf'):
+            pdb.set_trace()
 
         # TODO: compute this recursively every time
         log_ml = logaddexp(log_alpha_gamma_nk+log_marginal_h1,
