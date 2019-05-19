@@ -235,7 +235,10 @@ class bhc(object):
             v1 = left_node.log_ml+right_node.log_ml
             v2 = log_alpha_gamma_nk+log_marginal_h1
 
-            return -np.log1p(np.exp(v1-v2))
+            x = v1-v2
+
+            return -(np.log(1+np.exp(-np.abs(x))) + np.maximum(x, 0))
+            # return -np.log1p(np.exp(x))
 
         nk = left_node.get_count()+right_node.get_count()
 
