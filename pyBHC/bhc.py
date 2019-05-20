@@ -220,11 +220,15 @@ class bhc(object):
 
         data = self.data_model.compute_data(data)
         logp = self.data_model.log_marginal_likelihood(data)
-        log_dk = (logp, math.log(self.crp_alpha))
+        if logger.getEffectiveLevel() <= logging.DEBUG:
+            values_to_check = (logp, math.log(self.crp_alpha))
+        else:
+            values_to_check = None
+        log_dk = math.log(self.crp_alpha)
         log_ml = math.log(self.crp_alpha)+logp
         log_rk = 0
 
-        return Node(new_node_id, log_rk, log_ml, log_dk, data=data)
+        return Node(new_node_id, log_rk, log_ml, log_dk, data=data, values_to_check=values_to_check)
 
     def create_merged_node(self, new_node_id, left_node, right_node):
 
@@ -259,7 +263,8 @@ class bhc(object):
         log_ml = logaddexp(log_alpha_gamma_nk+log_marginal_h1,
                            left_node.log_ml+right_node.log_ml)
 
-        log_dk = None
+        log_dk = logaddexp(log_alpha_gamma_nk,
+                           left_node.log_dk+right_node.log_dk)
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
             old_log_rk, old_log_ml, old_log_dk = self.compute_old_rk(
@@ -269,9 +274,11 @@ class bhc(object):
                 'log_rk(={}) is not equal to old_log_rk(={})'.format(
                 log_rk, old_log_rk)
 
-            log_dk = (old_log_ml, old_log_dk)
+            values_to_check = (old_log_ml, old_log_dk)
+        else:
+            values_to_check = None
 
-        return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node)
+        return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node, values_to_check=values_to_check)
 
     def compute_old_rk(self, left_node, right_node):
 
@@ -288,12 +295,13 @@ class bhc(object):
             log_numerator = log_pi + log_marginal
             log_1m_pi = math.log(-math.expm1(log_pi))
             log_denominator = logaddexp(
-                log_numerator, log_1m_pi+left_node.log_dk[0] + right_node.log_dk[0])
+                log_numerator, log_1m_pi+left_node.values_to_check[0] + right_node.values_to_check[0])
 
             return log_numerator-log_denominator, log_denominator
 
         nk = left_node.get_count()+right_node.get_count()
-        log_children_dks = left_node.log_dk[1] + right_node.log_dk[1]
+        log_children_dks = left_node.values_to_check[1] + \
+            right_node.values_to_check[1]
 
         log_alpha_gamma_nk = compute_log_alpha_gamma_nk(self.crp_alpha, nk)
         log_dk = compute_log_dk(log_alpha_gamma_nk, log_children_dks)
@@ -388,7 +396,7 @@ class Node(ClusterNode):
     Based off scipy's ClusterNode class
     """
 
-    def __init__(self, node_id, log_rk, log_ml, log_dk, data=None, count=None, left_child=None, right_child=None):
+    def __init__(self, node_id, log_rk, log_ml, log_dk, data=None, count=None, left_child=None, right_child=None, values_to_check=None):
 
         if left_child is not None:
             count = left_child.count+right_child.count
@@ -399,6 +407,7 @@ class Node(ClusterNode):
         self.log_ml = log_ml
         self.log_dk = log_dk
         self.data = data
+        self.values_to_check = values_to_check
 
         super().__init__(node_id, left=left_child, right=right_child, count=count)
 
