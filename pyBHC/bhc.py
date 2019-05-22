@@ -216,7 +216,7 @@ class bhc(object):
 
         return k, predict_prob
 
-    def create_leaf_node(self, new_node_id, data):
+    def create_leaf_node(self, new_node_id, data, data_ids=None):
 
         data = self.data_model.compute_data(data)
         logp = self.data_model.log_marginal_likelihood(data)
@@ -227,8 +227,9 @@ class bhc(object):
         log_dk = math.log(self.crp_alpha)
         log_ml = math.log(self.crp_alpha)+logp
         log_rk = 0
+        data_ids_new = data_ids if data_ids is not None else [new_node_id]
 
-        return Node(new_node_id, log_rk, log_ml, log_dk, data=data, values_to_check=values_to_check)
+        return Node(new_node_id, log_rk, log_ml, log_dk, data_ids=data_ids_new, data=data, values_to_check=values_to_check)
 
     def create_merged_node(self, new_node_id, left_node, right_node):
 
@@ -379,6 +380,49 @@ class bhc(object):
         for (i, mean, cov) in mean_cov_tuples:
             plot_mean_cov(mean, cov, colors[i, :], plt.gca())
 
+    def compute_dendrogram_purity(self, true_clusters):
+        # true_clusters is a list of list with ids of true clusters
+
+        def flatten(l): return [item for sublist in l for item in sublist]
+
+        def compute_purity(cluster_labels, true_labels):
+            return len(set(cluster_labels+true_labels))/len(true_labels)
+
+        true_clustering_pairs = [list(it.combinations(
+            true_cluster, 2)) for true_cluster in true_clusters]
+
+        n_true_pairs = sum(map(len, true_clustering_pairs))
+
+        purity_sum = 0
+        for k, pairs in tqdm(enumerate(true_clustering_pairs)):
+            for pair in pairs:
+
+                LCA = self.find_LCA(self.root_node, *pair)
+                subtree_data_ids = flatten(LCA.pre_order(lambda x: x.data_ids))
+                purity = compute_purity(subtree_data_ids, true_clusters[k])
+
+                purity_sum += purity
+
+        return (purity_sum/n_true_pairs, purity_sum, n_true_pairs)
+
+    def find_LCA(self, root, p, q, search_func=lambda x: x.data_ids):
+
+        def is_potential_LCA(node, p, q):
+            leaves = [item for l in node.pre_order(search_func) for item in l]
+            return p in leaves and q in leaves
+
+        left_child = root.get_left()
+        right_child = root.get_right()
+
+        if not left_child.is_leaf() and is_potential_LCA(left_child, p, q):
+            LCA = self.find_LCA(root.get_left(), p, q)
+        elif not right_child.is_leaf() and is_potential_LCA(right_child, p, q):
+            LCA = self.find_LCA(root.get_right(), p, q)
+        else:
+            LCA = root
+
+        return LCA
+
     @staticmethod
     def get_cut_subtrees(node, nodelist=None):
         nodelist = [] if nodelist is None else nodelist
@@ -396,7 +440,7 @@ class Node(ClusterNode):
     Based off scipy's ClusterNode class
     """
 
-    def __init__(self, node_id, log_rk, log_ml, log_dk, data=None, count=None, left_child=None, right_child=None, values_to_check=None):
+    def __init__(self, node_id, log_rk, log_ml, log_dk, data_ids=None, data=None, count=None, left_child=None, right_child=None, values_to_check=None):
 
         if left_child is not None:
             count = left_child.count+right_child.count
@@ -407,6 +451,7 @@ class Node(ClusterNode):
         self.log_ml = log_ml
         self.log_dk = log_dk
         self.data = data
+        self.data_ids = data_ids
         self.values_to_check = values_to_check
 
         super().__init__(node_id, left=left_child, right=right_child, count=count)

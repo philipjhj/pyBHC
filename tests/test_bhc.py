@@ -54,6 +54,10 @@ def train_model(data):
     plt.close()
     plot_data = np.array(data)
     bhc_model.plot_clusters(data=plot_data)
+    if len(data) > 1:
+        true_clusters = [list(range(len(data)))]
+        plt.title("Purity: {}".format(
+            bhc_model.compute_dendrogram_purity(true_clusters)))
     plt.show()
     plt.close()
 
