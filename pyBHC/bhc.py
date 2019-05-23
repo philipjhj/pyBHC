@@ -123,6 +123,108 @@ class bhc(object):
 
         self.omegas = self.compute_omegas(self.root_node)
 
+    def randomized_fit(self, m_fraction=0.2):
+
+        merged_node_id = max([node.id for node in self.nodes])
+        self.rks = []
+
+        def randomizedBHC(nodes):
+            nonlocal merged_node_id
+
+            def pick_random_subsample(nodes):
+                n_nodes = len(nodes)
+                selected_idx = np.random.choice(np.arange(n_nodes),
+                                                size=int(np.ceil(
+                                                    n_nodes*m_fraction)),
+                                                replace=False)
+                selected_nodes = [nodes[i] for i in selected_idx]
+
+                return selected_nodes
+
+            def filter_points(node, root):
+                filtered_left = []
+                filtered_right = []
+
+                def compute_ppd(new_node, node):
+
+                    data = self.data_model.compute_data(node.get_data())
+                    new_data = self.data_model.compute_data(
+                        new_node.get_data())
+
+                    log_ppd = self.data_model.log_posterior_predictive(
+                        new_data, data)
+
+                    log_alpha_gamma_nk = math.log(
+                        self.crp_alpha)+math.lgamma(node.get_count())
+
+                    if not node.is_leaf():
+                        log_prior = log_alpha_gamma_nk -\
+                            logaddexp(log_alpha_gamma_nk,
+                                      node.get_left().log_dk+node.get_right().log_dk)
+                    else:
+                        log_prior = 0
+
+                    return log_prior+log_ppd
+
+                for node in nodes:
+                    left_ppd = compute_ppd(node, root.get_left())
+                    right_ppd = compute_ppd(node, root.get_right())
+
+                    if left_ppd > right_ppd:
+                        filtered_left.append(node)
+                    else:
+                        filtered_right.append(node)
+
+                return filtered_left, filtered_right
+
+            left_subtree = []
+            right_subtree = []
+            while not left_subtree or not right_subtree:
+                # pick fraction of data point by random
+                selected_nodes = pick_random_subsample(nodes)
+
+                if len(selected_nodes) < 3:
+                    selected_nodes = nodes.copy()
+                    bhc_ = bhc(selected_nodes, self.data_model, self.crp_alpha)
+                    bhc_.fit()
+
+                    if len(bhc_.nodes) > 1:
+
+                        for i in range(len(nodes), len(bhc_.nodes)):
+                            merged_node_id += 1
+                            bhc_.nodes[i].id = merged_node_id
+
+                            self.nodes.append(bhc_.nodes[i])
+                            self.rks.append(math.exp(bhc_.nodes[i].log_rk))
+
+                    return bhc_.root_node
+
+                # train BHC model on fraction
+                bhc_ = bhc(selected_nodes, self.data_model, self.crp_alpha)
+                bhc_.fit()
+
+                # Filter points
+                left_subtree, right_subtree = filter_points(
+                    nodes, bhc_.root_node)
+
+            # run randomized algorithm
+            left_bhc_root = randomizedBHC(left_subtree)
+
+            right_bhc_root = randomizedBHC(right_subtree)
+
+            merged_node_id += 1
+            merged_node = self.create_merged_node(merged_node_id,
+                                                  left_bhc_root,
+                                                  right_bhc_root)
+
+            self.nodes.append(merged_node)
+            self.rks.append(math.exp(merged_node.log_rk))
+
+            return merged_node
+
+        self.root_node = randomizedBHC(self.nodes)
+        self.omegas = self.compute_omegas(self.root_node)
+
     def get_Z(self):
         Z = []
         leaves_id_order = []
