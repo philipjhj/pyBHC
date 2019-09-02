@@ -13,6 +13,7 @@ from numpy import logaddexp
 import math
 from tqdm import tqdm
 import pdb
+from pudb import set_trace
 
 
 logger = logging.getLogger(__name__)
@@ -131,91 +132,101 @@ class bhc(object):
         def randomizedBHC(nodes):
             nonlocal merged_node_id
 
-            def pick_random_subsample(nodes):
-                n_nodes = len(nodes)
-                selected_idx = np.random.choice(np.arange(n_nodes),
-                                                size=int(np.ceil(
-                                                    n_nodes*m_fraction)),
+            def select_n_nodes(n, nodes):
+                selected_idx = np.random.choice(np.arange(len(nodes)),
+                                                size=n,
                                                 replace=False)
-                selected_nodes = [nodes[i] for i in selected_idx]
 
-                return selected_nodes
+                nodes_selected = [nodes[i] for i in selected_idx]
+                nodes_remaining = [nodes[i] for i in range(len(nodes))
+                                   if i not in selected_idx]
 
-            def filter_points(node, root):
-                filtered_left = []
-                filtered_right = []
+                return nodes_selected, nodes_remaining
 
-                def compute_ppd(new_node, node):
+            def filter_points(nodes_remaining, root):
+                filtered_left = root.get_left().get_leaves()
+                filtered_right = root.get_right().get_leaves()
 
-                    data = self.data_model.compute_data(node.get_data())
+                def compute_subtree_probability(new_node, subtree_root):
+
+                    data = self.data_model.compute_data(
+                        subtree_root.get_data())
                     new_data = self.data_model.compute_data(
                         new_node.get_data())
 
                     log_ppd = self.data_model.log_posterior_predictive(
                         new_data, data)
 
+                    # Compute subtree prior
                     log_alpha_gamma_nk = math.log(
-                        self.crp_alpha)+math.lgamma(node.get_count())
+                        self.crp_alpha)+math.lgamma(subtree_root.get_count())
 
-                    if not node.is_leaf():
+                    if not subtree_root.is_leaf():
                         log_prior = log_alpha_gamma_nk -\
                             logaddexp(log_alpha_gamma_nk,
-                                      node.get_left().log_dk+node.get_right().log_dk)
+                                      subtree_root.get_left().log_dk
+                                      + subtree_root.get_right().log_dk)
                     else:
                         log_prior = 0
 
                     return log_prior+log_ppd
 
-                for node in nodes:
-                    left_ppd = compute_ppd(node, root.get_left())
-                    right_ppd = compute_ppd(node, root.get_right())
+                for node in nodes_remaining:
+                    l_subtree_prob = compute_subtree_probability(
+                        node, root.get_left())
+                    r_subtree_prob = compute_subtree_probability(
+                        node, root.get_right())
 
-                    if left_ppd > right_ppd:
+                    if l_subtree_prob > r_subtree_prob:
                         filtered_left.append(node)
                     else:
                         filtered_right.append(node)
 
                 return filtered_left, filtered_right
 
-            left_subtree = []
-            right_subtree = []
-            while not left_subtree or not right_subtree:
-                # pick fraction of data point by random
-                selected_nodes = pick_random_subsample(nodes)
+            n_select = max(2, int(np.ceil(len(nodes)*m_fraction)))
 
-                if len(selected_nodes) < 3:
-                    selected_nodes = nodes.copy()
-                    bhc_ = bhc(selected_nodes, self.data_model, self.crp_alpha)
-                    bhc_.fit()
+            # pick fraction of data point by random
+            nodes_selected, nodes_remaining = select_n_nodes(n_select, nodes)
 
-                    if len(bhc_.nodes) > 1:
+            # train BHC model on fraction
+            bhc_ = bhc(nodes_selected, self.data_model, self.crp_alpha)
+            bhc_.fit()
 
-                        for i in range(len(nodes), len(bhc_.nodes)):
-                            merged_node_id += 1
-                            bhc_.nodes[i].id = merged_node_id
+            if len(nodes) == 2:
 
-                            self.nodes.append(bhc_.nodes[i])
-                            self.rks.append(math.exp(bhc_.nodes[i].log_rk))
+                for i in range(len(nodes), len(bhc_.nodes)-1):
+                    merged_node_id += 1
+                    bhc_.nodes[i].id = merged_node_id
 
-                    return bhc_.root_node
+                    self.nodes.append(bhc_.nodes[i])
+                    self.rks.append(math.exp(bhc_.nodes[i].log_rk))
 
-                # train BHC model on fraction
-                bhc_ = bhc(selected_nodes, self.data_model, self.crp_alpha)
-                bhc_.fit()
-
+                merged_node = bhc_.root_node
+                merged_node_id += 1
+                merged_node.id = merged_node_id
+            else:
                 # Filter points
-                left_subtree, right_subtree = filter_points(
-                    nodes, bhc_.root_node)
+                l_subtree, r_subtree = filter_points(
+                    nodes_remaining, bhc_.root_node)
 
-            # run randomized algorithm
-            left_bhc_root = randomizedBHC(left_subtree)
+                subtree_roots = []
+                for subtree in [l_subtree, r_subtree]:
+                    if len(subtree) > 1:
+                        subtree_root = randomizedBHC(subtree)
 
-            right_bhc_root = randomizedBHC(right_subtree)
+                    elif len(subtree) == 1:
+                        subtree_root = subtree[0]
+                    else:
+                        logger.debug(
+                            "Empty subtree in random algorithm; this should not happen.")
 
-            merged_node_id += 1
-            merged_node = self.create_merged_node(merged_node_id,
-                                                  left_bhc_root,
-                                                  right_bhc_root)
+                    subtree_roots.append(subtree_root)
+
+                merged_node_id += 1
+                merged_node = self.create_merged_node(merged_node_id,
+                                                      subtree_roots[0],
+                                                      subtree_roots[1])
 
             self.nodes.append(merged_node)
             self.rks.append(math.exp(merged_node.log_rk))
@@ -360,7 +371,7 @@ class bhc(object):
             log_alpha_gamma_nk, log_marginal_h1, left_node, right_node)
 
         if log_rk == -float('inf'):
-            pdb.set_trace()
+            set_trace()
 
         # TODO: compute this recursively every time
         log_ml = logaddexp(log_alpha_gamma_nk+log_marginal_h1,
@@ -370,12 +381,16 @@ class bhc(object):
                            left_node.log_dk+right_node.log_dk)
 
         if logger.getEffectiveLevel() <= logging.DEBUG:
-            old_log_rk, old_log_ml, old_log_dk = self.compute_old_rk(
+            old_log_rk, old_log_ml, old_log_dk, valid_computation = self.compute_old_rk(
                 left_node, right_node)
 
-            assert (np.isclose(log_rk, old_log_rk)), \
-                'log_rk(={}) is not equal to old_log_rk(={})'.format(
-                log_rk, old_log_rk)
+            if valid_computation:
+                assert (np.isclose(log_rk, old_log_rk)), \
+                    'log_rk(={}) is not equal to old_log_rk(={})'.format(
+                    log_rk, old_log_rk)
+            else:
+                logger.warning(
+                    'Numerically issues when computing old log_rk values; skipping test')
 
             values_to_check = (old_log_ml, old_log_dk)
         else:
@@ -384,6 +399,8 @@ class bhc(object):
         return Node(new_node_id, log_rk, log_ml, log_dk, left_child=left_node, right_child=right_node, values_to_check=values_to_check)
 
     def compute_old_rk(self, left_node, right_node):
+
+        valid_computation = True
 
         def compute_log_alpha_gamma_nk(crp_alpha, nk):
             return math.log(crp_alpha) + math.lgamma(nk)
@@ -395,13 +412,21 @@ class bhc(object):
             return -math.log(math.exp(log_dk - log_alpha_gamma_nk))
 
         def compute_posterior_merged(log_marginal, log_pi, left_node, right_node):
+            nonlocal valid_computation
+
             log_numerator = log_pi + log_marginal
-            log_1m_pi = math.log(-math.expm1(log_pi))
+            try:
+                log_1m_pi = math.log(-math.expm1(log_pi))
+            except ValueError:
+                log_1m_pi = 0
+                valid_computation = False
+
             log_denominator = logaddexp(
                 log_numerator, log_1m_pi+left_node.values_to_check[0] + right_node.values_to_check[0])
 
             return log_numerator-log_denominator, log_denominator
 
+        # set_trace()
         nk = left_node.get_count()+right_node.get_count()
         log_children_dks = left_node.values_to_check[1] + \
             right_node.values_to_check[1]
@@ -409,6 +434,9 @@ class bhc(object):
         log_alpha_gamma_nk = compute_log_alpha_gamma_nk(self.crp_alpha, nk)
         log_dk = compute_log_dk(log_alpha_gamma_nk, log_children_dks)
         log_pi = compute_log_pi(log_alpha_gamma_nk, log_dk)
+
+        if np.isclose(log_dk, log_alpha_gamma_nk):
+            valid_computation = False
 
         nodes_data = left_node.get_data() + right_node.get_data()
         data = self.data_model.compute_data(nodes_data)
@@ -418,7 +446,7 @@ class bhc(object):
         log_rk, log_subtree = compute_posterior_merged(
             log_marginal, log_pi, left_node, right_node)
 
-        return log_rk, log_subtree, log_dk
+        return log_rk, log_subtree, log_dk, valid_computation
 
     def plot_dendrogram(self):
         colors = ['b' if np.exp(node.log_rk) >
@@ -574,6 +602,9 @@ class Node(ClusterNode):
 
     def get_data(self):
         return self.pre_order(lambda x: x.data)
+
+    def get_leaves(self):
+        return self.pre_order(lambda x: x)
 
     def get_mean(self):
         data = self.get_data()
