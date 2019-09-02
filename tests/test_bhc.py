@@ -3,12 +3,17 @@ import pytest
 import matplotlib.pyplot as plt
 import logging
 import sys
-
+from sklearn.datasets import make_blobs
+from pathlib import Path
+from inspect import stack
 
 from pyBHC.bhc import bhc
 from pyBHC.dists import NormalInverseWishart
 
-#LOGGING_LEVEL = logging.INFO
+
+TEST_OUTPUT_PATH = Path('tests/output')
+
+# LOGGING_LEVEL = logging.INFO
 LOGGING_LEVEL = logging.DEBUG
 
 logging.basicConfig(
@@ -50,8 +55,13 @@ def train_model(data, plot_output):
     print(str(bhc_model.root_node))
 
     if plot_output:
+        savefig_path = TEST_OUTPUT_PATH / \
+            stack()[1].function / ("n_" + str(len(data)) + '.png')
+        savefig_path.parent.mkdir(parents=True, exist_ok=True)
+
         bhc_model.plot_dendrogram()
-        plt.show()
+        # plt.show()
+        plt.savefig(savefig_path, format='png')
         plt.close()
         plot_data = np.array(data)
         bhc_model.plot_clusters(data=plot_data)
@@ -59,7 +69,8 @@ def train_model(data, plot_output):
             true_clusters = [list(range(len(data)))]
             plt.title("Purity: {}".format(
                 bhc_model.compute_dendrogram_purity(true_clusters)))
-        plt.show()
+        plt.savefig(savefig_path, format='png')
+        # plt.show()
         plt.close()
 
     k, p = bhc_model.predict(data[-1])
@@ -84,8 +95,13 @@ def train_model_randomized(data, plot_output):
     print(str(bhc_model.root_node))
 
     if plot_output:
+        savefig_path = TEST_OUTPUT_PATH / \
+            stack()[1].function / ("n_" + str(len(data)) + '.png')
+        savefig_path.parent.mkdir(parents=True, exist_ok=True)
+
         bhc_model.plot_dendrogram()
-        plt.show()
+        plt.savefig(savefig_path, format='png')
+        # plt.show()
         plt.close()
         plot_data = np.array(data)
         bhc_model.plot_clusters(data=plot_data)
@@ -93,227 +109,46 @@ def train_model_randomized(data, plot_output):
             true_clusters = [list(range(len(data)))]
             plt.title("Purity: {}".format(
                 bhc_model.compute_dendrogram_purity(true_clusters)))
-        plt.show()
+
+        # TODO: save plot based on test name
+        plt.savefig(savefig_path, format='png')
+        # plt.show()
         plt.close()
 
     k, p = bhc_model.predict(data[-1])
 
 
-def test_bhc_1_w_plot():
-    data = list(np.random.normal(size=(1, 2)))
-    train_model(data, True)
+def generate_test_data(n_samples):
+    X, y = make_blobs(n_samples=n_samples, centers=3,
+                      n_features=2,  random_state=0,
+                      cluster_std=0.2)
+    return list(X)
+    # return list(np.random.normal(size=(n_samples, 2)))
 
 
-def test_bhc_2_w_plot():
-    data = list(np.random.normal(size=(2, 2)))
-    train_model(data, True)
-
-
-def test_bhc_3_w_plot():
-    data = list(np.random.normal(size=(3, 2)))
-    train_model(data, True)
-
-
-def test_bhc_4_w_plot():
-    data = list(np.random.normal(size=(4, 2)))
-    train_model(data, True)
-
-
-def test_bhc_5_w_plot():
-    data = list(np.random.normal(size=(5, 2)))
-    train_model(data, True)
-
-
-def test_bhc_6_w_plot():
-    data = list(np.random.normal(size=(6, 2)))
-    train_model(data, True)
-
-
-def test_bhc_7_w_plot():
-    data = list(np.random.normal(size=(7, 2)))
-    train_model(data, True)
-
-
-def test_bhc_8_w_plot():
-    data = list(np.random.normal(size=(8, 2)))
-    train_model(data, True)
-
-
-def test_bhc_9_w_plot():
-    data = list(np.random.normal(size=(9, 2)))
-    train_model(data, True)
-
-
-def test_bhc_25_w_plot():
-    data = list(np.random.normal(size=(25, 2)))
-    train_model(data, True)
-
-
-def test_bhc_50_w_plot():
-    data = list(np.random.normal(size=(50, 2)))
-    train_model(data, True)
-
-
-def test_random_bhc_1_w_plot():
-    data = list(np.random.normal(size=(1, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_2_w_plot():
-    data = list(np.random.normal(size=(2, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_3_w_plot():
-    data = list(np.random.normal(size=(3, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_4_w_plot():
-    data = list(np.random.normal(size=(4, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_5_w_plot():
-    data = list(np.random.normal(size=(5, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_6_w_plot():
-    data = list(np.random.normal(size=(6, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_7_w_plot():
-    data = list(np.random.normal(size=(7, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_8_w_plot():
-    data = list(np.random.normal(size=(8, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_9_w_plot():
-    data = list(np.random.normal(size=(9, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_25_w_plot():
-    data = list(np.random.normal(size=(25, 2)))
-    train_model_randomized(data, True)
-
-
-def test_random_bhc_50_w_plot():
-    data = list(np.random.normal(size=(50, 2)))
-    train_model_randomized(data, True)
-
-
-def test_bhc_1_w_no_plot():
-    data = list(np.random.normal(size=(1, 2)))
+# @pytest.mark.parametrize("n_samples", [1, 2, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+@pytest.mark.parametrize("n_samples", [50, 55, 60, 65, 70, 75])
+def test_bhc_w_no_plot(n_samples):
+    data = generate_test_data(n_samples)
     train_model(data, False)
 
 
-def test_bhc_2_w_no_plot():
-    data = list(np.random.normal(size=(2, 2)))
-    train_model(data, False)
-
-
-def test_bhc_3_w_no_plot():
-    data = list(np.random.normal(size=(3, 2)))
-    train_model(data, False)
-
-
-def test_bhc_4_w_no_plot():
-    data = list(np.random.normal(size=(4, 2)))
-    train_model(data, False)
-
-
-def test_bhc_5_w_no_plot():
-    data = list(np.random.normal(size=(5, 2)))
-    train_model(data, False)
-
-
-def test_bhc_6_w_no_plot():
-    data = list(np.random.normal(size=(6, 2)))
-    train_model(data, False)
-
-
-def test_bhc_7_w_no_plot():
-    data = list(np.random.normal(size=(7, 2)))
-    train_model(data, False)
-
-
-def test_bhc_8_w_no_plot():
-    data = list(np.random.normal(size=(8, 2)))
-    train_model(data, False)
-
-
-def test_bhc_9_w_no_plot():
-    data = list(np.random.normal(size=(9, 2)))
-    train_model(data, False)
-
-
-def test_bhc_25_w_no_plot():
-    data = list(np.random.normal(size=(25, 2)))
-    train_model(data, False)
-
-
-def test_bhc_50_w_no_plot():
-    data = list(np.random.normal(size=(50, 2)))
-    train_model(data, False)
-
-
-def test_random_bhc_1_w_no_plot():
-    data = list(np.random.normal(size=(1, 2)))
+# @pytest.mark.parametrize("n_samples", [1, 2, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+@pytest.mark.parametrize("n_samples", [50, 55, 60, 65, 70, 75])
+def test_random_bhc_w_no_plot(n_samples):
+    data = generate_test_data(n_samples)
     train_model_randomized(data, False)
 
 
-def test_random_bhc_2_w_no_plot():
-    data = list(np.random.normal(size=(2, 2)))
-    train_model_randomized(data, False)
+# @pytest.mark.parametrize("n_samples", [1, 2, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+@pytest.mark.parametrize("n_samples", [50, 55, 60, 65, 70, 75])
+def test_bhc_w_plot(n_samples):
+    data = generate_test_data(n_samples)
+    train_model(data, True)
 
 
-def test_random_bhc_3_w_no_plot():
-    data = list(np.random.normal(size=(3, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_4_w_no_plot():
-    data = list(np.random.normal(size=(4, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_5_w_no_plot():
-    data = list(np.random.normal(size=(5, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_6_w_no_plot():
-    data = list(np.random.normal(size=(6, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_7_w_no_plot():
-    data = list(np.random.normal(size=(7, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_8_w_no_plot():
-    data = list(np.random.normal(size=(8, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_9_w_no_plot():
-    data = list(np.random.normal(size=(9, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_25_w_no_plot():
-    data = list(np.random.normal(size=(25, 2)))
-    train_model_randomized(data, False)
-
-
-def test_random_bhc_50_w_no_plot():
-    data = list(np.random.normal(size=(50, 2)))
-    train_model_randomized(data, False)
+# @pytest.mark.parametrize("n_samples", [1, 2, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+@pytest.mark.parametrize("n_samples", [50, 55, 60, 65, 70, 75])
+def test_random_bhc_w_plot(n_samples):
+    data = generate_test_data(n_samples)
+    train_model_randomized(data, True)
