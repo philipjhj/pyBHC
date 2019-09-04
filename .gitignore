@@ -2,6 +2,7 @@
 
 # my own rules
 *~
+tests/output
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
