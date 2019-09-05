@@ -63,8 +63,7 @@ def train_model(data, plot_output):
         # plt.show()
         plt.savefig(savefig_path, format='png')
         plt.close()
-        plot_data = np.array(data)
-        bhc_model.plot_clusters(data=plot_data)
+        bhc_model.plot_clusters()
         if len(data) > 1:
             true_clusters = [list(range(len(data)))]
             plt.title("Purity: {}".format(
@@ -74,6 +73,8 @@ def train_model(data, plot_output):
         plt.close()
 
     k, p = bhc_model.predict(data[-1])
+
+    return bhc_model
 
 
 def train_model_randomized(data, plot_output):
@@ -103,8 +104,7 @@ def train_model_randomized(data, plot_output):
         plt.savefig(savefig_path, format='png')
         # plt.show()
         plt.close()
-        plot_data = np.array(data)
-        bhc_model.plot_clusters(data=plot_data)
+        bhc_model.plot_clusters()
         if len(data) > 1:
             true_clusters = [list(range(len(data)))]
             plt.title("Purity: {}".format(
@@ -141,6 +141,7 @@ def test_random_bhc_w_no_plot(n_samples):
 
 
 # @pytest.mark.parametrize("n_samples", [1, 2, 4, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+# @pytest.mark.parametrize("n_samples", [10])
 @pytest.mark.parametrize("n_samples", [50, 55, 60, 65, 70, 75])
 def test_bhc_w_plot(n_samples):
     data = generate_test_data(n_samples)
@@ -152,3 +153,13 @@ def test_bhc_w_plot(n_samples):
 def test_random_bhc_w_plot(n_samples):
     data = generate_test_data(n_samples)
     train_model_randomized(data, True)
+
+
+# wrong assumption
+# @pytest.mark.parametrize("n_samples", [10])
+# def test_data_id_order(n_samples):
+#    data = generate_test_data(n_samples)
+#    bhc_model = train_model(data, False)
+#    ids = bhc_model.root_node.pre_order(lambda x: x.id)
+#    assert all(ids[i] < ids[i+1] for i in range(len(ids)-1)), \
+#        'ids not sorted correctly; {}'.format(ids)

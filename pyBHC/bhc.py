@@ -277,6 +277,29 @@ class bhc(object):
 
         return Z, leaves_id_order
 
+    def get_flat_clusters(self):
+        """ Get flat cluster assignments
+
+        """
+
+        data = np.vstack(self.root_node.get_data())
+
+        top_cluster_nodes = self.get_cut_subtrees(self.root_node)
+
+        flat_clusters = []
+        for k, node in enumerate(top_cluster_nodes):
+            cluster_i_assignments = node.pre_order(lambda x: x.id)
+
+            if node.get_count() > 1:
+                mean_cov = (node.get_mean(), node.get_cov())
+            else:
+                mean_cov = (None, None)
+
+            flat_clusters.append(
+                {'mean_cov': mean_cov, 'data_ids': cluster_i_assignments})
+
+        return data, flat_clusters
+
     @staticmethod
     def compute_omegas(node, log_ri=None, n_total=None):
         """ Recursive function to compute the mixture probabilites
@@ -458,7 +481,7 @@ class bhc(object):
             dend = dendrogram(Z, distance_sort=False, labels=leaves_id_order,
                               link_color_func=lambda k: colors[k])
 
-    def plot_clusters(self, data=None):
+    def plot_clusters(self):
 
         def plot_mean_cov(mean, covar, color, splot):
             v, w = linalg.eigh(covar)
@@ -474,41 +497,25 @@ class bhc(object):
             ell.set_alpha(0.5)
             splot.add_artist(ell)
 
-        if data is not None:
-            leaves_id_order = [
-                node.id for node in self.nodes if node.is_leaf()]
-        else:
-            leaves_id_order = [
-                node.id for node in self.root_node.pre_order(lambda x: x)]
-
-            data = np.vstack(self.root_node.get_data())
-
-        top_cluster_nodes = self.get_cut_subtrees(
-            self.root_node)
+        data, flat_clusters = self.get_flat_clusters()
 
         colors = sns.color_palette(
-            palette='deep', n_colors=len(top_cluster_nodes))
+            palette='deep', n_colors=len(flat_clusters))
         colors = np.array(colors)
 
-        colors_data = np.zeros((self.root_node.get_count(), 3))
-        clusters = []
-        mean_cov_tuples = []
-        for k, node in enumerate(top_cluster_nodes):
-            cluster_i_assignments = [leaves_id_order.index(i)
-                                     for i in node.pre_order(lambda x: x.id)]
-            clusters.append(cluster_i_assignments)
+        colors_data = colors[[k for k in range(len(flat_clusters))
+                              for _ in range(len(flat_clusters[k]['data_ids']))], :]
 
-            colors_data[clusters[-1], :] = colors[k, :]
+        if data is not None:
+            plt.scatter(data[:, 0], data[:, 1], c=colors_data)
+            plt.scatter(data[-1, 0], data[-1, 1], color='w', s=12)
 
-            if node.get_count() > 1:
-                mean_cov_tuples.append((k, node.get_mean(),
-                                        node.get_cov()))
+        for i, cluster in enumerate(flat_clusters):
+            mean = cluster['mean_cov'][0]
+            cov = cluster['mean_cov'][1]
 
-        plt.scatter(data[:, 0], data[:, 1], c=colors_data)
-        plt.scatter(data[-1, 0], data[-1, 1], color='w', s=12)
-
-        for (i, mean, cov) in mean_cov_tuples:
-            plot_mean_cov(mean, cov, colors[i, :], plt.gca())
+            if mean is not None and cov is not None:
+                plot_mean_cov(mean, cov, colors[i, :], plt.gca())
 
     def compute_dendrogram_purity(self, true_clusters):
         # true_clusters is a list of list with ids of true clusters
