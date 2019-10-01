@@ -56,19 +56,21 @@ def train_model(data, plot_output):
 
     if plot_output:
         savefig_path = TEST_OUTPUT_PATH / \
-            stack()[1].function / ("n_" + str(len(data)) + '.png')
+            stack()[1].function / ("n_" + str(len(data)))
         savefig_path.parent.mkdir(parents=True, exist_ok=True)
 
         bhc_model.plot_dendrogram()
         # plt.show()
-        plt.savefig(savefig_path, format='png')
+        plt.savefig(savefig_path.with_name(
+            savefig_path.name+'_dendrogram.png'), format='png')
         plt.close()
         bhc_model.plot_clusters()
         if len(data) > 1:
             true_clusters = [list(range(len(data)))]
             plt.title("Purity: {}".format(
                 bhc_model.compute_dendrogram_purity(true_clusters)))
-        plt.savefig(savefig_path, format='png')
+        plt.savefig(savefig_path.with_name(
+            savefig_path.name+'_clusters.png'), format='png')
         # plt.show()
         plt.close()
 
@@ -97,11 +99,12 @@ def train_model_randomized(data, plot_output):
 
     if plot_output:
         savefig_path = TEST_OUTPUT_PATH / \
-            stack()[1].function / ("n_" + str(len(data)) + '.png')
+            stack()[1].function / ("n_" + str(len(data)))
         savefig_path.parent.mkdir(parents=True, exist_ok=True)
 
         bhc_model.plot_dendrogram()
-        plt.savefig(savefig_path, format='png')
+        plt.savefig(savefig_path.with_name(
+            savefig_path.name+'_dendrogram.png'), format='png')
         # plt.show()
         plt.close()
         bhc_model.plot_clusters()
@@ -111,7 +114,8 @@ def train_model_randomized(data, plot_output):
                 bhc_model.compute_dendrogram_purity(true_clusters)))
 
         # TODO: save plot based on test name
-        plt.savefig(savefig_path, format='png')
+        plt.savefig(savefig_path.with_name(
+            savefig_path.name+'_clusters.png'), format='png')
         # plt.show()
         plt.close()
 
