@@ -237,8 +237,10 @@ class bhc(object):
         self.omegas = self.compute_omegas(self.root_node)
 
     def get_Z(self):
+
         Z = []
         leaves_id_order = []
+        colors = []
 
         n_leafs = int((len(self.nodes)+1)/2)
         ids_inner = iter(range(n_leafs, len(self.nodes)))
@@ -250,6 +252,7 @@ class bhc(object):
             if not node.is_leaf():
                 inner_new_id.append(next(ids_inner))
                 inner_orig_id.append(node.id)
+                colors.append('b' if np.exp(node.log_rk) > 0.5 else 'r')
 
                 left = node.get_left()
                 right = node.get_right()
@@ -257,12 +260,14 @@ class bhc(object):
                 if left.is_leaf():
                     id_left = next(ids_leafs)
                     leaves_id_order.append(left.id)
+                    colors.append('b')
                 else:
                     id_left = inner_new_id[inner_orig_id.index(left.id)]
 
                 if right.is_leaf():
                     id_right = next(ids_leafs)
                     leaves_id_order.append(right.id)
+                    colors.append('b')
                 else:
                     id_right = inner_new_id[inner_orig_id.index(right.id)]
 
@@ -275,7 +280,7 @@ class bhc(object):
                           node.get_count()])
                 i += 1
 
-        return Z, leaves_id_order
+        return Z, leaves_id_order, colors
 
     def get_flat_clusters(self):
         """ Get flat cluster assignments
@@ -332,6 +337,15 @@ class bhc(object):
         return log_omega_node
 
     def predict(self, new_data, all_nodes=False):
+        """ Computes the probability of new data belonging
+        to each node using the posterior predictive distribution
+
+        if `all_nodes` is true, then returns two lists sorted by
+        most likely node to least likely node one with the ordering
+        in the nodes attribute, and one with the corresponding
+        probabilities, otherwise only the most likely node
+        """
+
         log_predictive_probs = []
         for node in self.nodes:
             nodes_data = node.get_data()
@@ -472,9 +486,8 @@ class bhc(object):
         return log_rk, log_subtree, log_dk, valid_computation
 
     def plot_dendrogram(self):
-        colors = ['b' if np.exp(node.log_rk) >
-                  0.5 else 'r' for node in self.nodes]
-        Z, leaves_id_order = self.get_Z()
+        Z, leaves_id_order, colors = self.get_Z()
+
         if Z:
             Z = np.array(Z, ndmin=2)
             Z[:, 2] = 1.15**Z[:, 2]  # decent exp increase for visualization
