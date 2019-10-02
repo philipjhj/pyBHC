@@ -240,19 +240,24 @@ class bhc(object):
 
         Z = []
         leaves_id_order = []
-        colors = []
 
-        n_leafs = int((len(self.nodes)+1)/2)
+        n_nodes = len(self.nodes)
+        n_leafs = int((n_nodes+1)/2)
         ids_inner = iter(range(n_leafs, len(self.nodes)))
         ids_leafs = iter(range(n_leafs))
         inner_orig_id = []
         inner_new_id = []
+
+        colors = list('b')*n_nodes
+
         i = 1
         for node in self.nodes:
             if not node.is_leaf():
                 inner_new_id.append(next(ids_inner))
                 inner_orig_id.append(node.id)
-                colors.append('b' if np.exp(node.log_rk) > 0.5 else 'r')
+
+                if np.exp(node.log_rk) < 0.5:
+                    colors[inner_new_id[-1]] = 'r'
 
                 left = node.get_left()
                 right = node.get_right()
@@ -260,14 +265,12 @@ class bhc(object):
                 if left.is_leaf():
                     id_left = next(ids_leafs)
                     leaves_id_order.append(left.id)
-                    colors.append('b')
                 else:
                     id_left = inner_new_id[inner_orig_id.index(left.id)]
 
                 if right.is_leaf():
                     id_right = next(ids_leafs)
                     leaves_id_order.append(right.id)
-                    colors.append('b')
                 else:
                     id_right = inner_new_id[inner_orig_id.index(right.id)]
 
