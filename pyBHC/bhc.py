@@ -515,6 +515,8 @@ class bhc(object):
 
         data, flat_clusters = self.get_flat_clusters()
 
+        idx_new_node = np.argmax(self.root_node.pre_order(lambda x: x.id))
+
         colors = sns.color_palette(
             palette='deep', n_colors=len(flat_clusters))
         colors = np.array(colors)
@@ -524,7 +526,8 @@ class bhc(object):
 
         if data is not None:
             plt.scatter(data[:, 0], data[:, 1], c=colors_data)
-            plt.scatter(data[-1, 0], data[-1, 1], color='w', s=12)
+            plt.scatter(data[idx_new_node, 0],
+                        data[idx_new_node, 1], color='w', s=12)
 
         for i, cluster in enumerate(flat_clusters):
             mean = cluster['mean_cov'][0]
