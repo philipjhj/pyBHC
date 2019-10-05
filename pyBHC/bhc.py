@@ -11,7 +11,7 @@ import logging
 import matplotlib as mpl
 from numpy import logaddexp
 import math
-from tqdm import tqdm
+
 import pdb
 from pudb import set_trace
 
@@ -66,26 +66,28 @@ class bhc(object):
         else:
             self.nodes = data
 
-    def fit(self):
-        assignment = list(range(len(self.nodes)))
+    def fit(self, verbose=True):
+        n_data = len(self.nodes)
+        assignment = list(range(n_data))
         self.assignments = [list(assignment)]
         self.rks = []
 
         current_roots = assignment
         cached_nodes = dict()
         merged_node_id = max([node.id for node in self.nodes])
+
+        i_nodes = 1
         while len(current_roots) > 1:
+            if verbose:
+                logger.info(
+                    'Merging next node [{}/{}]'.format(i_nodes, n_data))
+                i_nodes += 1
             max_rk = float('-Inf')
             merged_node = None
 
             # for each pair of clusters (nodes), compute the merger
             # score.
 
-            logger.info('Computing next merge; missing {} merges'.format(
-                len(current_roots)-1))
-
-            # tqdm not integrated with logging
-            # see https://stackoverflow.com/questions/14897756/python-progress-bar-through-logging-module/41224909
             for left_idx, right_idx in it.combinations(current_roots, 2):
                 merged_node_id += 1
                 if (left_idx, right_idx) not in cached_nodes.keys():
@@ -550,7 +552,7 @@ class bhc(object):
         n_true_pairs = sum(map(len, true_clustering_pairs))
 
         purity_sum = 0
-        for k, pairs in tqdm(enumerate(true_clustering_pairs)):
+        for k, pairs in enumerate(true_clustering_pairs):
             for pair in pairs:
 
                 LCA = self.find_LCA(self.root_node, *pair)
