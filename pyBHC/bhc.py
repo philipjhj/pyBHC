@@ -598,8 +598,14 @@ class bhc(object):
         nodelist = [] if nodelist is None else nodelist
 
         if np.exp(node.log_rk) < 0.5:
-            left = bhc.get_cut_subtrees(node.get_left())
-            right = bhc.get_cut_subtrees(node.get_right())
+            if node.get_left():
+                left = bhc.get_cut_subtrees(node.get_left())
+            else:
+                left = []
+            if node.get_right():
+                right = bhc.get_cut_subtrees(node.get_right())
+            else:
+                right = []
             return nodelist+left+right
         else:
             return [node]
