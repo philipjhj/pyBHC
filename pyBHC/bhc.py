@@ -126,7 +126,7 @@ class bhc(object):
 
         self.omegas = self.compute_omegas(self.root_node)
 
-    def randomized_fit(self, m_fraction=0.2):
+    def randomized_fit(self, m=0.2):
 
         merged_node_id = max([node.id for node in self.nodes])
         self.rks = []
@@ -186,7 +186,14 @@ class bhc(object):
 
                 return filtered_left, filtered_right
 
-            n_select = max(2, int(np.ceil(len(nodes)*m_fraction)))
+            if isinstance(m, int):
+                n_select = m
+            elif isinstance(m, float):
+                n_select = max(2, int(np.ceil(len(nodes)*m)))
+            else:
+                logger.info('m should be an int or a float')
+
+            n_select = n_select if n_select < len(nodes) else len(nodes)
 
             # pick fraction of data point by random
             nodes_selected, nodes_remaining = select_n_nodes(n_select, nodes)
