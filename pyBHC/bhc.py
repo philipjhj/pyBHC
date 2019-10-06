@@ -130,8 +130,13 @@ class bhc(object):
 
         merged_node_id = max([node.id for node in self.nodes])
         self.rks = []
+        n_nodes = len(self.nodes)
 
         def randomizedBHC(nodes):
+            n_nodes_local = len(nodes)
+            logger.info('Fitting depth [{:.0f}/{:.0f}] with nodes [{}/{}]'.format(
+                np.ceil(np.log2(n_nodes_local)), np.ceil(np.log2(n_nodes)),
+                n_nodes_local, n_nodes))
             nonlocal merged_node_id
 
             def select_n_nodes(n, nodes):
@@ -200,7 +205,7 @@ class bhc(object):
 
             # train BHC model on fraction
             bhc_ = bhc(nodes_selected, self.data_model, self.crp_alpha)
-            bhc_.fit()
+            bhc_.fit(verbose=False)
 
             if len(nodes) == 2:
 
