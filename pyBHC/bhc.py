@@ -7,6 +7,7 @@ from scipy import linalg
 import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
+import copy
 
 import matplotlib as mpl
 from numpy import logaddexp
@@ -140,11 +141,15 @@ class bhc(object):
         self.rks = []
         n_nodes = len(self.nodes)
 
+        if isinstance(m, int):
+            n_select = m
+        elif isinstance(m, float):
+            n_select = max(2, int(np.ceil(len(n_nodes)*m)))
+        else:
+            logger.info('m should be an int or a float')
+
         def randomizedBHC(nodes):
             n_nodes_local = len(nodes)
-            logger.info('Fitting depth [{:.0f}/{:.0f}] with nodes [{}/{}]'.format(
-                np.ceil(np.log2(n_nodes_local)), np.ceil(np.log2(n_nodes)),
-                n_nodes_local, n_nodes))
             nonlocal merged_node_id
 
             def select_n_nodes(n, nodes):
@@ -199,62 +204,65 @@ class bhc(object):
 
                 return filtered_left, filtered_right
 
-            if isinstance(m, int):
-                n_select = m
-            elif isinstance(m, float):
-                n_select = max(2, int(np.ceil(len(nodes)*m)))
-            else:
-                logger.info('m should be an int or a float')
+            logger.info('Fitting depth [{:.0f}/{:.0f}] with nodes [{}/{}]'.format(
+                np.ceil(np.log2(n_nodes_local)), np.ceil(np.log2(n_nodes)),
+                n_select, n_nodes))
 
-            n_select = n_select if n_select < len(nodes) else len(nodes)
-
+            # if n_select < n_nodes_local:
             # pick fraction of data point by random
-            nodes_selected, nodes_remaining = select_n_nodes(n_select, nodes)
+            nodes_selected, nodes_remaining = select_n_nodes(
+                n_select, nodes)
 
             # train BHC model on fraction
-            bhc_ = bhc(nodes_selected, self.data_model, self.crp_alpha)
-            bhc_.fit(verbose=False)
+            bhc_filter = bhc(nodes_selected, self.data_model, self.crp_alpha)
+            bhc_filter.fit(verbose=False)
 
-            if len(nodes) == 2:
+            # Filter points
+            l_subtree, r_subtree = filter_points(
+                nodes_remaining, bhc_filter.root_node)
 
-                for i in range(len(nodes), len(bhc_.nodes)-1):
-                    merged_node_id += 1
-                    bhc_.nodes[i].id = merged_node_id
+            subtree_roots = []
+            for subtree in [l_subtree, r_subtree]:
+                if len(subtree) > n_select:
+                    subtree_root = randomizedBHC(subtree)
 
-                    self.nodes.append(bhc_.nodes[i])
-                    self.rks.append(math.exp(bhc_.nodes[i].log_rk))
+                elif len(subtree) == 1:
+                    subtree_root = subtree[0]
+                elif 1 < len(subtree) and len(subtree) <= n_select:
+                    bhc_ = bhc(copy.deepcopy(subtree),
+                               self.data_model, self.crp_alpha)
+                    bhc_.fit(verbose=False)
 
-                merged_node = bhc_.root_node
-                merged_node_id += 1
-                merged_node.id = merged_node_id
-            else:
-                # Filter points
-                l_subtree, r_subtree = filter_points(
-                    nodes_remaining, bhc_.root_node)
+                    for i in range(len(subtree), len(bhc_.nodes)):
+                        merged_node_id += 1
+                        bhc_.nodes[i].id = merged_node_id
 
-                subtree_roots = []
-                for subtree in [l_subtree, r_subtree]:
-                    if len(subtree) > 1:
-                        subtree_root = randomizedBHC(subtree)
-
-                    elif len(subtree) == 1:
-                        subtree_root = subtree[0]
-                    else:
+                        self.nodes.append(bhc_.nodes[i])
+                        self.rks.append(math.exp(bhc_.nodes[i].log_rk))
                         logger.debug(
-                            "Empty subtree in random algorithm; this should not happen.")
+                            'Adds node [{} / {}]'.format(len(self.nodes), 2*n_nodes-1))
 
-                    subtree_roots.append(subtree_root)
+                    subtree_root = bhc_.root_node
+                else:
+                    logger.debug(
+                        "Bad (empty?) subtree in random algorithm; this should not happen.")
 
-                merged_node_id += 1
-                merged_node = self.create_merged_node(merged_node_id,
-                                                      subtree_roots[0],
-                                                      subtree_roots[1])
+                subtree_roots.append(subtree_root)
+
+            merged_node_id += 1
+            merged_node = self.create_merged_node(merged_node_id,
+                                                  subtree_roots[0],
+                                                  subtree_roots[1])
 
             self.nodes.append(merged_node)
             self.rks.append(math.exp(merged_node.log_rk))
+            logger.debug(
+                'Adds node [{} / {}]'.format(len(self.nodes), 2*n_nodes-1))
 
             return merged_node
 
+        logger.info(
+            'Total nodes [{} / {}]'.format(len(self.nodes), 2*n_nodes-1))
         self.root_node = randomizedBHC(self.nodes)
         self.omegas = self.compute_omegas(self.root_node)
 

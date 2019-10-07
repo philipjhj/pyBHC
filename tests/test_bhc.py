@@ -83,7 +83,7 @@ def train_model(data, plot_output):
 
 def train_model_randomized(data, plot_output):
     bhc_model = bhc(data, NormalInverseWishart(**hypers), crp_alpha=crp_alpha)
-    bhc_model.randomized_fit()
+    bhc_model.randomized_fit(m=4)
 
     # Verify rks
     rks = np.array(bhc_model.rks)
