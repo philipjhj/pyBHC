@@ -11,6 +11,7 @@ import logging
 import matplotlib as mpl
 from numpy import logaddexp
 import math
+import time
 
 import pdb
 from pudb import set_trace
@@ -39,7 +40,7 @@ class bhc(object):
     large for datasets of more than a few hundred points.
     """
 
-    def __init__(self, data, data_model, crp_alpha=1.0):
+    def __init__(self, data, data_model, crp_alpha=1.0, cache_iteration_run_time=True):
         """
         Init a bhc instance and perform the clustering.
 
@@ -56,6 +57,8 @@ class bhc(object):
         verbose : bool, optional
             Determibes whetrher info gets dumped to stdout.
         """
+        self.cache_iteration_run_time = cache_iteration_run_time
+        self.iteration_run_times = []
         self.data_model = data_model
         self.crp_alpha = crp_alpha
 
@@ -78,6 +81,8 @@ class bhc(object):
 
         i_nodes = 1
         while len(current_roots) > 1:
+            if self.cache_iteration_run_time:
+                t_a = time.time()
             if verbose:
                 logger.info(
                     'Merging next node [{}/{}]'.format(i_nodes, n_data))
@@ -120,6 +125,9 @@ class bhc(object):
                 if k == merged_right:
                     assignment[i] = merged_left
             self.assignments.append(list(assignment))
+
+            if self.cache_iteration_run_time:
+                self.iteration_run_times.append(time.time()-t_a)
 
         self.assignments = np.array(self.assignments)
         self.root_node = self.nodes[-1]

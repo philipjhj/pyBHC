@@ -76,6 +76,8 @@ def train_model(data, plot_output):
 
     k, p = bhc_model.predict(data[-1])
 
+    print(bhc_model.iteration_run_times)
+
     return bhc_model
 
 
@@ -120,6 +122,8 @@ def train_model_randomized(data, plot_output):
         plt.close()
 
     k, p = bhc_model.predict(data[-1])
+
+    print(bhc_model.iteration_run_times)
 
 
 def generate_test_data(n_samples):
