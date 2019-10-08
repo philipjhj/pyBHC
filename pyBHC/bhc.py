@@ -140,6 +140,7 @@ class bhc(object):
         merged_node_id = max([node.id for node in self.nodes])
         self.rks = []
         n_nodes = len(self.nodes)
+        n_depth = np.ceil(np.log2(n_nodes))
 
         if isinstance(m, int):
             n_select = m
@@ -148,7 +149,7 @@ class bhc(object):
         else:
             logger.info('m should be an int or a float')
 
-        def randomizedBHC(nodes):
+        def randomizedBHC(nodes, i_depth=0):
             n_nodes_local = len(nodes)
             nonlocal merged_node_id
 
@@ -204,9 +205,8 @@ class bhc(object):
 
                 return filtered_left, filtered_right
 
-            logger.info('Fitting depth [{:.0f}/{:.0f}] with nodes [{}/{}]'.format(
-                np.ceil(np.log2(n_nodes_local)), np.ceil(np.log2(n_nodes)),
-                n_select, n_nodes))
+            logger.info('Fitting {:.0f} nodes at depth [{:.0f}] with nodes [{}/{}]'.format(
+                n_nodes_local, i_depth, n_select, n_nodes))
 
             # if n_select < n_nodes_local:
             # pick fraction of data point by random
@@ -214,21 +214,26 @@ class bhc(object):
                 n_select, nodes)
 
             # train BHC model on fraction
-            bhc_filter = bhc(nodes_selected, self.data_model, self.crp_alpha)
+            assert len(nodes_selected) == n_select
+            bhc_filter = bhc(copy.deepcopy(nodes_selected),
+                             self.data_model, self.crp_alpha)
             bhc_filter.fit(verbose=False)
+            assert len(nodes_selected) == n_select
 
             # Filter points
             l_subtree, r_subtree = filter_points(
-                nodes_remaining, bhc_filter.root_node)
+                copy.deepcopy(nodes_remaining), bhc_filter.root_node)
 
             subtree_roots = []
             for subtree in [l_subtree, r_subtree]:
                 if len(subtree) > n_select:
-                    subtree_root = randomizedBHC(subtree)
+                    subtree_root = randomizedBHC(subtree, i_depth=i_depth+1)
 
                 elif len(subtree) == 1:
                     subtree_root = subtree[0]
                 elif 1 < len(subtree) and len(subtree) <= n_select:
+                    logger.info(
+                        'Subtree is smaller than m; fitting final bhc.')
                     bhc_ = bhc(copy.deepcopy(subtree),
                                self.data_model, self.crp_alpha)
                     bhc_.fit(verbose=False)
