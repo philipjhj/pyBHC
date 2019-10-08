@@ -175,23 +175,27 @@ class bhc(object):
                     new_data = self.data_model.compute_data(
                         new_node.get_data())
 
-                    log_ppd = self.data_model.log_posterior_predictive(
-                        new_data, data)
-
                     # Compute subtree prior
-                    # log_alpha_gamma_nk = math.log(
-                    #    self.crp_alpha)+math.lgamma(subtree_root.get_count())
 
-                    # if not subtree_root.is_leaf():
-                    #    log_prior = log_alpha_gamma_nk -\
-                    #        logaddexp(log_alpha_gamma_nk,
-                    #                  subtree_root.get_left().log_dk
-                    #                  + subtree_root.get_right().log_dk)
-                    # else:
-                    #    log_prior = 0
-                    log_prior = omega
+                    if not subtree_root.is_leaf():
+                        log_alpha_gamma_nk = math.log(
+                            self.crp_alpha)+math.lgamma(subtree_root.get_count())
 
-                    return log_prior+log_ppd
+                        log_prior = log_alpha_gamma_nk -\
+                            logaddexp(log_alpha_gamma_nk,
+                                      subtree_root.get_left().log_dk
+                                      + subtree_root.get_right().log_dk)
+                    else:
+                        log_prior = 0
+
+                    new_node = self.create_leaf_node(1, new_data)
+                    tmp_node = self.create_merged_node(0,
+                                                       subtree_root,
+                                                       new_node)
+
+                    log_prob = log_prior+tmp_node.log_rk
+
+                    return log_prob
 
                 for node in nodes_to_be_filtered:
                     l_subtree_prob = compute_subtree_probability(
