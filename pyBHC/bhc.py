@@ -164,11 +164,11 @@ class bhc(object):
 
                 return nodes_selected, nodes_remaining
 
-            def filter_points(nodes_remaining, root):
+            def filter_points(nodes_to_be_filtered, root, omegas):
                 filtered_left = root.get_left().get_leaves()
                 filtered_right = root.get_right().get_leaves()
 
-                def compute_subtree_probability(new_node, subtree_root):
+                def compute_subtree_probability(new_node, subtree_root, omega):
 
                     data = self.data_model.compute_data(
                         subtree_root.get_data())
@@ -179,24 +179,25 @@ class bhc(object):
                         new_data, data)
 
                     # Compute subtree prior
-                    log_alpha_gamma_nk = math.log(
-                        self.crp_alpha)+math.lgamma(subtree_root.get_count())
+                    # log_alpha_gamma_nk = math.log(
+                    #    self.crp_alpha)+math.lgamma(subtree_root.get_count())
 
-                    if not subtree_root.is_leaf():
-                        log_prior = log_alpha_gamma_nk -\
-                            logaddexp(log_alpha_gamma_nk,
-                                      subtree_root.get_left().log_dk
-                                      + subtree_root.get_right().log_dk)
-                    else:
-                        log_prior = 0
+                    # if not subtree_root.is_leaf():
+                    #    log_prior = log_alpha_gamma_nk -\
+                    #        logaddexp(log_alpha_gamma_nk,
+                    #                  subtree_root.get_left().log_dk
+                    #                  + subtree_root.get_right().log_dk)
+                    # else:
+                    #    log_prior = 0
+                    log_prior = omega
 
                     return log_prior+log_ppd
 
-                for node in nodes_remaining:
+                for node in nodes_to_be_filtered:
                     l_subtree_prob = compute_subtree_probability(
-                        node, root.get_left())
+                        node, root.get_left(), omegas[root.get_left().id])
                     r_subtree_prob = compute_subtree_probability(
-                        node, root.get_right())
+                        node, root.get_right(), omegas[root.get_right().id])
 
                     if l_subtree_prob > r_subtree_prob:
                         filtered_left.append(node)
@@ -222,7 +223,7 @@ class bhc(object):
 
             # Filter points
             l_subtree, r_subtree = filter_points(
-                copy.deepcopy(nodes_remaining), bhc_filter.root_node)
+                copy.deepcopy(nodes_remaining), bhc_filter.root_node, bhc_filter.omegas)
 
             subtree_roots = []
             for subtree in [l_subtree, r_subtree]:
