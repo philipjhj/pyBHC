@@ -164,11 +164,11 @@ class bhc(object):
 
                 return nodes_selected, nodes_remaining
 
-            def filter_points(nodes_to_be_filtered, root, omegas):
+            def filter_points(nodes_to_be_filtered, root):
                 filtered_left = root.get_left().get_leaves()
                 filtered_right = root.get_right().get_leaves()
 
-                def compute_subtree_probability(new_node, subtree_root, omega):
+                def compute_subtree_probability(new_node, subtree_root):
 
                     data = self.data_model.compute_data(
                         subtree_root.get_data())
@@ -188,20 +188,23 @@ class bhc(object):
                     else:
                         log_prior = 0
 
-                    new_node = self.create_leaf_node(1, new_data)
-                    tmp_node = self.create_merged_node(0,
-                                                       subtree_root,
-                                                       new_node)
+                    #new_node = self.create_leaf_node(1, new_data)
+                    # tmp_node = self.create_merged_node(0,
+                    #                                   subtree_root,
+                    #                                   new_node)
+                    # log_prob = log_prior+tmp_node.log_rk
 
-                    log_prob = log_prior+tmp_node.log_rk
+                    log_posterior = self.data_model.log_posterior_predictive(
+                        new_data, data)
+                    log_prob = log_prior+log_posterior
 
                     return log_prob
 
                 for node in nodes_to_be_filtered:
                     l_subtree_prob = compute_subtree_probability(
-                        node, root.get_left(), omegas[root.get_left().id])
+                        node, root.get_left())
                     r_subtree_prob = compute_subtree_probability(
-                        node, root.get_right(), omegas[root.get_right().id])
+                        node, root.get_right())
 
                     if l_subtree_prob > r_subtree_prob:
                         filtered_left.append(node)
@@ -227,7 +230,7 @@ class bhc(object):
 
             # Filter points
             l_subtree, r_subtree = filter_points(
-                copy.deepcopy(nodes_remaining), bhc_filter.root_node, bhc_filter.omegas)
+                copy.deepcopy(nodes_remaining), bhc_filter.root_node)
 
             subtree_roots = []
             for subtree in [l_subtree, r_subtree]:
@@ -359,8 +362,9 @@ class bhc(object):
 
         log_rk = node.log_rk
 
-        log_omega = np.log(node.get_count())-np.log(n_total) + \
-            log_rk+np.nan_to_num(np.sum(np.log(-np.expm1(np.array(log_ri)))))
+        # log_omega = np.log(node.get_count())-np.log(n_total) + \
+        log_omega = log_rk + \
+            np.nan_to_num(np.sum(np.log(-np.expm1(np.array(log_ri)))))
 
         log_omega_node = {node.id: log_omega}
 
@@ -576,6 +580,43 @@ class bhc(object):
             if mean is not None and cov is not None:
                 plot_mean_cov(mean, cov, colors[i, :], plt.gca())
 
+    def plot_bar_tree(self):
+
+        def get_values(nodes, values=None):
+
+            values = values if values else []
+
+            values_nodes = []
+            children_nodes = []
+
+            for node in nodes:
+                values_nodes.append(np.exp(node.log_rk))
+                if node.get_left():
+                    children_nodes.append(node.get_left())
+                if node.get_right():
+                    children_nodes.append(node.get_right())
+
+            values.append(values_nodes)
+
+            if children_nodes:
+                values = get_values(children_nodes, values)
+
+            return values
+
+        values_all_levels = get_values([self.root_node])
+
+        height = len(values_all_levels)
+        k = 0
+        for i_level, values_level in enumerate(values_all_levels):
+            width = len(values_level)
+            for i, values_node in enumerate(values_level):
+                plt.subplot(height, width, i_level*width+i+1)
+                plt.bar(1, values_node)
+                plt.ylim([0, 1])
+
+        # plt.show()
+        # set_trace()
+
     def compute_dendrogram_purity(self, true_clusters):
         # true_clusters is a list of list with ids of true clusters
 
@@ -636,6 +677,25 @@ class bhc(object):
         else:
             return [node]
 
+    def get_all_nodes_from_tree(self):
+        cluster_roots = self.get_cut_subtrees(self.root_node)
+
+        all_nodes = []
+
+        def get_nodes(node, all_nodes=None):
+
+            all_nodes = all_nodes if all_nodes else []
+
+            all_nodes.append(node)
+            if node.get_left():
+                all_nodes = get_nodes(node.get_left(), all_nodes)
+            if node.get_left():
+                all_nodes = get_nodes(node.get_right(), all_nodes)
+
+            return all_nodes
+
+        return list(map(get_nodes, cluster_roots))
+
 
 class Node(ClusterNode):
     """
@@ -689,3 +749,27 @@ class Node(ClusterNode):
         return np.cov(np.vstack(data), rowvar=False) \
             if type(data[0]) is np.ndarray \
             else sum(data).get_cov()
+#
+#    def get_gradient(self, crp_alpha):
+#        if self.is_leaf():
+#            # TODO: for collapsed nodes, this shouldn't return 0
+#            return 0
+#        else:
+#            left_child = self.get_left()
+#            dk_left = np.exp(left_child.log_dk)
+#            right_child = self.get_right()
+#            dk_right = np.exp(right_child.log_dk)
+#
+#            # computing this might require some tricks
+#            pi = crp_alpha*gamma(self.get_count())/(crp_alpha*gamma(self.get_count())
+#                                                    + dk_left*dk_right)
+#            grad_dk = gamma(self.get_count())+left_child.grad_dk * \
+#                dk_right+dk_left*right_child.grad_dk
+#            grad_pi = pi/crp_alpha-pi/np.exp(self.log_dk)*grad_dk
+#
+#            # TODO: get the missing values here
+#            log_marginal_h1 =
+#            grad_left_child = left_child.get_gradient(crp_alpha)
+#            log_marginal_tree_right_child =
+#            grad_right_child = right_child.get_gradient(crp_alpha)
+#            log_marginal_tree_left_child =
