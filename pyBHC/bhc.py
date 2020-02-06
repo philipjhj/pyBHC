@@ -235,7 +235,8 @@ class bhc(object):
             subtree_roots = []
             for subtree in [l_subtree, r_subtree]:
                 if len(subtree) > n_select:
-                    subtree_root = randomizedBHC(subtree, i_depth=i_depth+1)
+                    subtree_root = randomizedBHC(
+                        copy.deepcopy(subtree), i_depth=i_depth+1)
 
                 elif len(subtree) == 1:
                     subtree_root = subtree[0]
