@@ -30,7 +30,7 @@ hypers = {
     'mu_0': np.zeros(2),
     'nu_0': 3.0,
     'kappa_0': 1.0,
-    'lambda_0': np.eye(2),
+    'lambda_0': 10*np.eye(2),
 }
 
 crp_alpha = 1
@@ -54,7 +54,7 @@ def train_model(data, plot_output):
     print(omega_sum)
     # assert np.isclose(omega_sum, 1)
 
-    print(str(bhc_model.root_node))
+    # print(str(bhc_model.root_node))
 
     if plot_output:
         savefig_path = TEST_OUTPUT_PATH / \
@@ -86,7 +86,7 @@ def train_model(data, plot_output):
 
     k, p = bhc_model.predict(data[-1])
 
-    print(bhc_model.iteration_run_times)
+    # print(bhc_model.iteration_run_times)
 
     return bhc_model
 

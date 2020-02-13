@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
 import copy
+from collections import deque
 
 import matplotlib as mpl
 from numpy import logaddexp
@@ -133,7 +134,7 @@ class bhc(object):
         self.assignments = np.array(self.assignments)
         self.root_node = self.nodes[-1]
 
-        self.omegas = self.compute_omegas(self.root_node)
+        self.omegas = self.compute_omegas()
 
     def randomized_fit(self, m=0.2):
 
@@ -275,7 +276,7 @@ class bhc(object):
         logger.info(
             'Total nodes [{} / {}]'.format(len(self.nodes), 2*n_nodes-1))
         self.root_node = randomizedBHC(self.nodes)
-        self.omegas = self.compute_omegas(self.root_node)
+        self.omegas = self.compute_omegas()
 
     def get_Z(self):
 
@@ -349,37 +350,40 @@ class bhc(object):
 
         return data, flat_clusters
 
-    @staticmethod
-    def compute_omegas(node, log_ri=None, n_total=None):
-        """ Recursive function to compute the mixture probabilites
+    def compute_omegas(self):
+        """ Non-Recursive function to compute the mixture probabilites
             denoted omegas
         """
 
-        log_ri = [] if log_ri is None else log_ri.copy()
-        n_total = node.get_count() if n_total is None else n_total
+        def get_log_omega(log_rk, log_ri):
+            return log_rk + np.nan_to_num(np.sum(np.log(-np.expm1(np.array(log_ri)))))
 
-        log_rk = node.log_rk
+        q_nodes = deque()
 
-        # log_omega = np.log(node.get_count())-np.log(n_total) + \
-        log_omega = log_rk + \
-            np.nan_to_num(np.sum(np.log(-np.expm1(np.array(log_ri)))))
+        log_ri = []
+        q_nodes.append((self.root_node, log_ri))
 
-        log_omega_node = {node.id: log_omega}
+        log_omegas = {}
+        while q_nodes:
+            next_node_items = q_nodes.popleft()
 
-        log_ri.append(log_rk)
+            node = next_node_items[0]
+            log_ri = next_node_items[1]
 
-        if not node.is_leaf():
-            log_omega_left = bhc.compute_omegas(
-                node.get_left(), log_ri=log_ri, n_total=n_total)
-            log_omega_right = bhc.compute_omegas(
-                node.get_right(), log_ri=log_ri, n_total=n_total)
-        else:
-            log_omega_left = {}
-            log_omega_right = {}
+            log_rk = node.log_rk
 
-        log_omega_node.update(log_omega_left)
-        log_omega_node.update(log_omega_right)
-        return log_omega_node
+            log_omega_node = {node.id: get_log_omega(log_rk, log_ri)}
+            log_omegas.update(log_omega_node)
+
+            left_child = node.get_left()
+            right_child = node.get_right()
+
+            if left_child:
+                q_nodes.append((left_child, log_ri+[log_rk]))
+            if right_child:
+                q_nodes.append((right_child, log_ri+[log_rk]))
+
+        return log_omegas
 
     def predict(self, new_data, all_nodes=False):
         """ Computes the probability of new data belonging
