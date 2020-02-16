@@ -30,10 +30,10 @@ hypers = {
     'mu_0': np.zeros(2),
     'nu_0': 3.0,
     'kappa_0': 1.0,
-    'lambda_0': 10*np.eye(2),
+    'lambda_0': 1*np.eye(2),
 }
 
-crp_alpha = 1
+crp_alpha = 3
 
 
 def train_model(data, plot_output):
@@ -93,7 +93,7 @@ def train_model(data, plot_output):
 
 def train_model_randomized(data, plot_output):
     bhc_model = bhc(data, NormalInverseWishart(**hypers), crp_alpha=crp_alpha)
-    bhc_model.randomized_fit(m=4)
+    bhc_model.randomized_fit(m=10)
 
     # Verify rks
     rks = np.array(bhc_model.rks)
